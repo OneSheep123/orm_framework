@@ -4,6 +4,7 @@ package orm
 import (
 	"database/sql"
 	"github.com/stretchr/testify/assert"
+	"orm_framework/orm/internal/errs"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func TestSelector_Build(t *testing.T) {
 			name:    "no from",
 			builder: &Selector[User]{},
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `User`;",
+				SQL:  "SELECT * FROM `user`;",
 				args: nil,
 			},
 			wantErr: nil,
@@ -37,7 +38,7 @@ func TestSelector_Build(t *testing.T) {
 			name:    "where empty",
 			builder: (&Selector[User]{}).Where(),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `User`;",
+				SQL:  "SELECT * FROM `user`;",
 				args: nil,
 			},
 			wantErr: nil,
@@ -45,16 +46,24 @@ func TestSelector_Build(t *testing.T) {
 		{
 			name: "where",
 			builder: (&Selector[User]{}).Where(
-				C("firstName").Eq("zhangsan").Or(C("lastName").Eq("list")),
-				C("age").Eq(12),
+				C("FirstName").Eq("zhangsan").Or(C("LastName").Eq("list")),
+				C("Age").Eq(12),
 			),
 			wantQuery: &Query{
-				SQL: "SELECT * FROM `User` WHERE ((`firstName` = ?) OR (`lastName` = ?)) And (`age` = ?);",
+				SQL: "SELECT * FROM `user` WHERE ((`first_name` = ?) OR (`last_name` = ?)) And (`age` = ?);",
 				args: []any{
 					"zhangsan", "list", 12,
 				},
 			},
 			wantErr: nil,
+		},
+		{
+			name: "where err",
+			builder: (&Selector[User]{}).Where(
+				C("FirstName").Eq("zhangsan").Or(C("XXX").Eq("list")),
+				C("Age").Eq(12),
+			),
+			wantErr: errs.NewErrUnknownField("XXX"),
 		},
 	}
 

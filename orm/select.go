@@ -3,7 +3,7 @@ package orm
 
 import (
 	"context"
-	"reflect"
+	"orm_framework/orm/internal/errs"
 	"strings"
 )
 
@@ -11,24 +11,29 @@ var _ QueryBuilder = &Selector[any]{}
 
 // Selector 用于构建Select语句
 type Selector[T any] struct {
-	tableName string
-	where     []Predicate
-	sb        strings.Builder
-	args      []any
+	model *model
+	table string
+	where []Predicate
+	sb    strings.Builder
+	args  []any
 }
 
 func (s *Selector[T]) Build() (*Query, error) {
-
+	m, err := parseModel(new(T))
+	if err != nil {
+		return nil, err
+	}
+	s.model = m
 	s.sb.WriteString("SELECT * FROM ")
 
-	if s.tableName == "" {
-		var t T
+	if s.table == "" {
 		s.sb.WriteByte('`')
-		s.sb.WriteString(reflect.TypeOf(t).Name())
+		s.sb.WriteString(s.model.tableName)
 		s.sb.WriteByte('`')
 	} else {
-		s.sb.WriteString(s.tableName)
+		s.sb.WriteString(s.table)
 	}
+
 	if len(s.where) > 0 {
 		s.sb.WriteString(" WHERE ")
 		pre := s.where[0]
@@ -52,8 +57,12 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	}
 	switch expr := expression.(type) {
 	case Column:
+		c, ok := s.model.fieldMap[expr.column]
+		if !ok {
+			return errs.NewErrUnknownField(expr.column)
+		}
 		s.sb.WriteByte('`')
-		s.sb.WriteString(expr.column)
+		s.sb.WriteString(c.colName)
 		s.sb.WriteByte('`')
 	case Value:
 		s.sb.WriteByte('?')
@@ -92,7 +101,7 @@ func (s *Selector[T]) Where(pre ...Predicate) *Selector[T] {
 }
 
 func (s *Selector[T]) From(tableName string) *Selector[T] {
-	s.tableName = tableName
+	s.table = tableName
 	return s
 }
 

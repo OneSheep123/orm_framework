@@ -25,5 +25,5 @@ type QueryBuilder interface {
 
 type Query struct {
 	SQL  string
-	args []any
+	Args []any
 }

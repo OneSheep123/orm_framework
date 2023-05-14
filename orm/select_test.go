@@ -21,7 +21,7 @@ func TestSelector_Build(t *testing.T) {
 			builder: &Selector[User]{},
 			wantQuery: &Query{
 				SQL:  "SELECT * FROM `user`;",
-				args: nil,
+				Args: nil,
 			},
 			wantErr: nil,
 		},
@@ -30,7 +30,7 @@ func TestSelector_Build(t *testing.T) {
 			builder: (&Selector[User]{}).From("`test`.`user`"),
 			wantQuery: &Query{
 				SQL:  "SELECT * FROM `test`.`user`;",
-				args: nil,
+				Args: nil,
 			},
 			wantErr: nil,
 		},
@@ -39,7 +39,7 @@ func TestSelector_Build(t *testing.T) {
 			builder: (&Selector[User]{}).Where(),
 			wantQuery: &Query{
 				SQL:  "SELECT * FROM `user`;",
-				args: nil,
+				Args: nil,
 			},
 			wantErr: nil,
 		},
@@ -51,7 +51,7 @@ func TestSelector_Build(t *testing.T) {
 			),
 			wantQuery: &Query{
 				SQL: "SELECT * FROM `user` WHERE ((`first_name` = ?) OR (`last_name` = ?)) And (`age` = ?);",
-				args: []any{
+				Args: []any{
 					"zhangsan", "list", 12,
 				},
 			},

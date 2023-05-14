@@ -47,7 +47,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 	s.sb.WriteByte(';')
 	return &Query{
 		SQL:  s.sb.String(),
-		args: s.args,
+		Args: s.args,
 	}, nil
 }
 

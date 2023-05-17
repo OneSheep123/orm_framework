@@ -42,9 +42,10 @@ func TestParseModel(t *testing.T) {
 		},
 	}
 
+	r := newRegistry()
 	for _, ts := range testCases {
 		t.Run(ts.name, func(t *testing.T) {
-			m, err := parseModel(ts.entity)
+			m, err := r.parseModel(ts.entity)
 			assert.Equal(t, ts.wantError, err)
 			if err != nil {
 				return

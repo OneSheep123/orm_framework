@@ -10,10 +10,17 @@ var _ QueryBuilder = &Deleter[any]{}
 
 type Deleter[T any] struct {
 	m     *model
+	db    *DB
 	table string
 	args  []any
 	sb    strings.Builder
 	where []Predicate
+}
+
+func NewDeleter[T any](db *DB) *Deleter[T] {
+	return &Deleter[T]{
+		db: db,
+	}
 }
 
 func (d *Deleter[T]) From(name string) *Deleter[T] {
@@ -27,7 +34,7 @@ func (d *Deleter[T]) Where(pre ...Predicate) *Deleter[T] {
 }
 
 func (d *Deleter[T]) Build() (*Query, error) {
-	m, err := parseModel(new(T))
+	m, err := d.db.r.get(new(T))
 	if err != nil {
 		return nil, err
 	}

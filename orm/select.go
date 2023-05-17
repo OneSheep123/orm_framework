@@ -12,14 +12,21 @@ var _ QueryBuilder = &Selector[any]{}
 // Selector 用于构建Select语句
 type Selector[T any] struct {
 	model *model
+	db    *DB
 	table string
 	where []Predicate
-	sb    strings.Builder
 	args  []any
+	sb    strings.Builder
+}
+
+func NewSelector[T any](db *DB) *Selector[T] {
+	return &Selector[T]{
+		db: db,
+	}
 }
 
 func (s *Selector[T]) Build() (*Query, error) {
-	m, err := parseModel(new(T))
+	m, err := s.db.r.get(new(T))
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +42,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}
 
 	if len(s.where) > 0 {
+		// 类似这种可有可无的部分，都要在前面加一个空格
 		s.sb.WriteString(" WHERE ")
 		pre := s.where[0]
 		for index := 1; index < len(s.where); index++ {

@@ -9,6 +9,7 @@ import (
 )
 
 func TestSelector_Build(t *testing.T) {
+	db, _ := NewDB()
 	testCases := []struct {
 		name    string
 		builder QueryBuilder
@@ -18,7 +19,7 @@ func TestSelector_Build(t *testing.T) {
 	}{
 		{
 			name:    "no from",
-			builder: &Selector[User]{},
+			builder: NewSelector[User](db),
 			wantQuery: &Query{
 				SQL:  "SELECT * FROM `user`;",
 				Args: nil,
@@ -27,7 +28,7 @@ func TestSelector_Build(t *testing.T) {
 		},
 		{
 			name:    "from",
-			builder: (&Selector[User]{}).From("`test`.`user`"),
+			builder: NewSelector[User](db).From("`test`.`user`"),
 			wantQuery: &Query{
 				SQL:  "SELECT * FROM `test`.`user`;",
 				Args: nil,
@@ -36,7 +37,7 @@ func TestSelector_Build(t *testing.T) {
 		},
 		{
 			name:    "where empty",
-			builder: (&Selector[User]{}).Where(),
+			builder: NewSelector[User](db).Where(),
 			wantQuery: &Query{
 				SQL:  "SELECT * FROM `user`;",
 				Args: nil,
@@ -45,7 +46,7 @@ func TestSelector_Build(t *testing.T) {
 		},
 		{
 			name: "where",
-			builder: (&Selector[User]{}).Where(
+			builder: NewSelector[User](db).Where(
 				C("FirstName").Eq("zhangsan").Or(C("LastName").Eq("list")),
 				C("Age").Eq(12),
 			),
@@ -59,7 +60,7 @@ func TestSelector_Build(t *testing.T) {
 		},
 		{
 			name: "where err",
-			builder: (&Selector[User]{}).Where(
+			builder: NewSelector[User](db).Where(
 				C("FirstName").Eq("zhangsan").Or(C("XXX").Eq("list")),
 				C("Age").Eq(12),
 			),

@@ -8,6 +8,7 @@ import (
 )
 
 func TestDeleter_Build(t *testing.T) {
+	db, _ := NewDB()
 	type TestModel struct {
 		Id        int
 		FirstName string
@@ -22,14 +23,14 @@ func TestDeleter_Build(t *testing.T) {
 	}{
 		{
 			name:    "no where",
-			builder: (&Deleter[TestModel]{}).From("`test_model`"),
+			builder: NewDeleter[TestModel](db).From("`test_model`"),
 			wantQuery: &Query{
 				SQL: "DELETE FROM `test_model`;",
 			},
 		},
 		{
 			name:    "where",
-			builder: (&Deleter[TestModel]{}).Where(C("Id").Eq(16)),
+			builder: NewDeleter[TestModel](db).Where(C("Id").Eq(16)),
 			wantQuery: &Query{
 				SQL:  "DELETE FROM `test_model` WHERE `id` = ?;",
 				Args: []any{16},
@@ -37,7 +38,7 @@ func TestDeleter_Build(t *testing.T) {
 		},
 		{
 			name:    "from",
-			builder: (&Deleter[TestModel]{}).From("`test_model`").Where(C("Id").Eq(16)),
+			builder: NewDeleter[TestModel](db).From("`test_model`").Where(C("Id").Eq(16)),
 			wantQuery: &Query{
 				SQL:  "DELETE FROM `test_model` WHERE `id` = ?;",
 				Args: []any{16},
@@ -45,7 +46,7 @@ func TestDeleter_Build(t *testing.T) {
 		},
 		{
 			name:    "from error",
-			builder: (&Deleter[TestModel]{}).From("`test_model`").Where(C("XXX").Eq(16)),
+			builder: NewDeleter[TestModel](db).From("`test_model`").Where(C("XXX").Eq(16)),
 			wantErr: errs.NewErrUnknownField("XXX"),
 		},
 	}

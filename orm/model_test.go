@@ -2,55 +2,98 @@
 package orm
 
 import (
+	"database/sql"
 	"github.com/stretchr/testify/assert"
 	"orm_framework/orm/internal/errs"
 	"testing"
 )
 
-func TestParseModel(t *testing.T) {
-	type TestModel struct {
-		Id        int
-		FirstName string
-		LastName  string
-		Age       int8
-	}
-	testCases := []struct {
-		name   string
-		entity any
+type TestModel struct {
+	Id        int64
+	FirstName string
+	Age       int8
+	LastName  *sql.NullString
+}
 
-		wantRes   *model
-		wantError error
+func TestModelWithTableName(t *testing.T) {
+	testCases := []struct {
+		name          string
+		val           any
+		opt           ModelOpt
+		wantTableName string
+		wantErr       error
 	}{
 		{
-			name:   "point struct",
-			entity: &TestModel{},
-			wantRes: &model{
-				tableName: "test_model",
-				fieldMap: map[string]*field{
-					"Id":        {colName: "id"},
-					"FirstName": {colName: "first_name"},
-					"LastName":  {colName: "last_name"},
-					"Age":       {colName: "age"},
-				},
-			},
-			wantError: nil,
+			// 我们没有对空字符串进行校验
+			name:          "empty string",
+			val:           &TestModel{},
+			opt:           ModelWithTableName(""),
+			wantTableName: "",
 		},
 		{
-			name:      "struct",
-			entity:    TestModel{},
-			wantError: errs.ErrPointOnly,
+			name:          "table name",
+			val:           &TestModel{},
+			opt:           ModelWithTableName("test_model_t"),
+			wantTableName: "test_model_t",
 		},
 	}
 
 	r := newRegistry()
-	for _, ts := range testCases {
-		t.Run(ts.name, func(t *testing.T) {
-			m, err := r.parseModel(ts.entity)
-			assert.Equal(t, ts.wantError, err)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			m, err := r.Register(tc.val, tc.opt)
+			assert.Equal(t, tc.wantErr, err)
 			if err != nil {
 				return
 			}
-			assert.Equal(t, ts.wantRes, m)
+			assert.Equal(t, tc.wantTableName, m.tableName)
+		})
+	}
+}
+
+func TestModelWithColumnName(t *testing.T) {
+	testCases := []struct {
+		name        string
+		val         any
+		opt         ModelOpt
+		field       string
+		wantColName string
+		wantErr     error
+	}{
+		{
+			name:        "new name",
+			val:         &TestModel{},
+			opt:         ModelWithColumnName("FirstName", "first_name_new"),
+			field:       "FirstName",
+			wantColName: "first_name_new",
+		},
+		{
+			name:        "empty new name",
+			val:         &TestModel{},
+			opt:         ModelWithColumnName("FirstName", ""),
+			field:       "FirstName",
+			wantColName: "",
+		},
+		{
+			// 不存在的字段
+			name:    "invalid field name",
+			val:     &TestModel{},
+			opt:     ModelWithColumnName("FirstNameXXX", "first_name"),
+			field:   "FirstNameXXX",
+			wantErr: errs.NewErrUnknownField("FirstNameXXX"),
+		},
+	}
+
+	r := newRegistry()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			m, err := r.Register(tc.val, tc.opt)
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			fd := m.fieldMap[tc.field]
+			assert.Equal(t, tc.wantColName, fd.colName)
 		})
 	}
 }

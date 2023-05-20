@@ -1,4 +1,4 @@
-// create by chencanhua in 2023/5/16
+// Package orm create by chencanhua in 2023/5/16
 package orm
 
 import (
@@ -9,6 +9,13 @@ import (
 	"unicode"
 )
 
+type Registry interface {
+	Get(val any) (*Model, error)
+	Register(val any, opts ...ModelOpt) (*Model, error)
+}
+
+var _ Registry = &registry{}
+
 type registry struct {
 	models sync.Map
 }
@@ -17,19 +24,30 @@ func newRegistry() *registry {
 	return &registry{}
 }
 
-// get 获取model数据
-func (r *registry) get(val any) (*model, error) {
+// Get 获取model数据
+func (r *registry) Get(val any) (*Model, error) {
 	tOf := reflect.TypeOf(val)
 	m, ok := r.models.Load(tOf)
-	if !ok {
-		var err error
-		m, err = r.parseModel(val)
+	if ok {
+		return m.(*Model), nil
+	}
+	return r.Register(val)
+}
+
+// Register 元数据注册
+func (r *registry) Register(val any, opts ...ModelOpt) (*Model, error) {
+	model, err := r.parseModel(val)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range opts {
+		err = opt(model)
 		if err != nil {
 			return nil, err
 		}
-		r.models.Store(tOf, m)
 	}
-	return m.(*model), nil
+	r.models.Store(reflect.TypeOf(val), model)
+	return model, nil
 }
 
 // parseTag 获取标签
@@ -54,7 +72,7 @@ func (r *registry) parseTag(tag reflect.StructTag) (map[string]string, error) {
 }
 
 // parseModel 根据输入的entity，返回model数据
-func (r *registry) parseModel(entity any) (*model, error) {
+func (r *registry) parseModel(entity any) (*Model, error) {
 	tOf := reflect.TypeOf(entity)
 	// 只允许一级指针结构体
 	if tOf.Kind() != reflect.Pointer || tOf.Elem().Kind() != reflect.Struct {
@@ -89,7 +107,7 @@ func (r *registry) parseModel(entity any) (*model, error) {
 		tableName = underscoreName(tOf.Name())
 	}
 
-	return &model{
+	return &Model{
 		tableName: tableName,
 		fieldMap:  fieldMap,
 	}, nil

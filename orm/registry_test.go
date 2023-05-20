@@ -19,14 +19,14 @@ func TestRegistry_get(t *testing.T) {
 		name   string
 		entity any
 
-		wantRes   *model
+		wantRes   *Model
 		wantError error
 		cacheSize int
 	}{
 		{
 			name:   "point struct",
 			entity: &TestModel{},
-			wantRes: &model{
+			wantRes: &Model{
 				tableName: "test_model",
 				fieldMap: map[string]*field{
 					"Id":        {colName: "id"},
@@ -74,7 +74,7 @@ func TestRegistry_get(t *testing.T) {
 				}
 				return &ColumnTag{}
 			}(),
-			wantRes: &model{
+			wantRes: &Model{
 				tableName: "column_tag",
 				fieldMap: map[string]*field{
 					"ID": {
@@ -93,7 +93,7 @@ func TestRegistry_get(t *testing.T) {
 				}
 				return &EmptyColumn{}
 			}(),
-			wantRes: &model{
+			wantRes: &Model{
 				tableName: "empty_column",
 				fieldMap: map[string]*field{
 					"FirstName": {
@@ -124,7 +124,7 @@ func TestRegistry_get(t *testing.T) {
 				}
 				return &IgnoreTag{}
 			}(),
-			wantRes: &model{
+			wantRes: &Model{
 				tableName: "ignore_tag",
 				fieldMap: map[string]*field{
 					"FirstName": {
@@ -137,7 +137,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name:   "tableName  struct",
 			entity: &User01{},
-			wantRes: &model{
+			wantRes: &Model{
 				tableName: "user_01_t",
 				fieldMap: map[string]*field{
 					"FirstName": {
@@ -149,7 +149,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name:   "tableName point  struct",
 			entity: &User02{},
-			wantRes: &model{
+			wantRes: &Model{
 				tableName: "user_02_t",
 				fieldMap: map[string]*field{
 					"FirstName": {
@@ -162,7 +162,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name:   "tableName empty",
 			entity: &User03{},
-			wantRes: &model{
+			wantRes: &Model{
 				tableName: "user03",
 				fieldMap: map[string]*field{
 					"FirstName": {
@@ -176,7 +176,7 @@ func TestRegistry_get(t *testing.T) {
 	r := newRegistry()
 	for _, ts := range testCases {
 		t.Run(ts.name, func(t *testing.T) {
-			m, err := r.get(ts.entity)
+			m, err := r.Get(ts.entity)
 			assert.Equal(t, ts.wantError, err)
 			if err != nil {
 				return

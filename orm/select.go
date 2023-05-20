@@ -11,7 +11,7 @@ var _ QueryBuilder = &Selector[any]{}
 
 // Selector 用于构建Select语句
 type Selector[T any] struct {
-	model *model
+	model *Model
 	db    *DB
 	table string
 	where []Predicate
@@ -26,7 +26,7 @@ func NewSelector[T any](db *DB) *Selector[T] {
 }
 
 func (s *Selector[T]) Build() (*Query, error) {
-	m, err := s.db.r.get(new(T))
+	m, err := s.db.r.Get(new(T))
 	if err != nil {
 		return nil, err
 	}

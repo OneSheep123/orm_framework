@@ -81,7 +81,7 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 	tOf = tOf.Elem()
 	numField := tOf.NumField()
 	fieldMap := map[string]*field{}
-
+	columnMap := map[string]*field{}
 	for index := 0; index < numField; index++ {
 		f := tOf.Field(index)
 		tagMap, err := r.parseTag(f.Tag)
@@ -92,9 +92,13 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 		if columnName == "" {
 			columnName = underscoreName(f.Name)
 		}
-		fieldMap[f.Name] = &field{
-			colName: columnName,
+		fieldInfo := &field{
+			colName:   columnName,
+			fieldName: f.Name,
+			tOf:       f.Type,
 		}
+		fieldMap[f.Name] = fieldInfo
+		columnMap[columnName] = fieldInfo
 	}
 
 	// 自定义表名
@@ -110,6 +114,7 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 	return &Model{
 		tableName: tableName,
 		fieldMap:  fieldMap,
+		columnMap: columnMap,
 	}, nil
 }
 

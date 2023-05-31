@@ -1,17 +1,24 @@
 // Package orm create by chencanhua in 2023/5/14
 package orm
 
-import "orm_framework/orm/internal/errs"
+import (
+	"orm_framework/orm/internal/errs"
+	"reflect"
+)
 
 type ModelOpt func(m *Model) error
 
+// Model 元数据
 type Model struct {
 	tableName string
 	fieldMap  map[string]*field
+	columnMap map[string]*field
 }
 
 type field struct {
-	colName string
+	colName   string
+	fieldName string
+	tOf       reflect.Type
 }
 
 // ModelWithColumnName 支持自定义字段名

@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"orm_framework/orm/internal/errs"
+	"orm_framework/orm/internal/valuer"
 	"testing"
 )
 
 func TestSelector_Build(t *testing.T) {
-	d := mysqlDB(t)
+	d := mysqlDB()
 	db, _ := OpenDB(d)
 	testCases := []struct {
 		name    string
@@ -25,39 +26,39 @@ func TestSelector_Build(t *testing.T) {
 	}{
 		{
 			name:    "no from",
-			builder: NewSelector[User](db),
+			builder: NewSelector[TestModel](db),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `user`;",
+				SQL:  "SELECT * FROM `test_model`;",
 				Args: nil,
 			},
 			wantErr: nil,
 		},
 		{
 			name:    "from",
-			builder: NewSelector[User](db).From("`test`.`user`"),
+			builder: NewSelector[TestModel](db).From("`test`.`test_model`"),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `test`.`user`;",
+				SQL:  "SELECT * FROM `test`.`test_model`;",
 				Args: nil,
 			},
 			wantErr: nil,
 		},
 		{
 			name:    "where empty",
-			builder: NewSelector[User](db).Where(),
+			builder: NewSelector[TestModel](db).Where(),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `user`;",
+				SQL:  "SELECT * FROM `test_model`;",
 				Args: nil,
 			},
 			wantErr: nil,
 		},
 		{
 			name: "where",
-			builder: NewSelector[User](db).Where(
+			builder: NewSelector[TestModel](db).Where(
 				C("FirstName").Eq("zhangsan").Or(C("LastName").Eq("list")),
 				C("Age").Eq(12),
 			),
 			wantQuery: &Query{
-				SQL: "SELECT * FROM `user` WHERE ((`first_name` = ?) OR (`last_name` = ?)) And (`age` = ?);",
+				SQL: "SELECT * FROM `test_model` WHERE ((`first_name` = ?) OR (`last_name` = ?)) And (`age` = ?);",
 				Args: []any{
 					"zhangsan", "list", 12,
 				},
@@ -66,7 +67,7 @@ func TestSelector_Build(t *testing.T) {
 		},
 		{
 			name: "where err",
-			builder: NewSelector[User](db).Where(
+			builder: NewSelector[TestModel](db).Where(
 				C("FirstName").Eq("zhangsan").Or(C("XXX").Eq("list")),
 				C("Age").Eq(12),
 			),
@@ -109,30 +110,30 @@ func TestSelector_Get(t *testing.T) {
 	require.NoError(t, err)
 	testCases := []struct {
 		name string
-		s    *Selector[User]
+		s    *Selector[TestModel]
 
-		wantQuery *User
+		wantQuery *TestModel
 		wantErr   error
 	}{
 		{
 			name:    "invalid error",
-			s:       NewSelector[User](db).Where(C("XXX").Eq("12")),
+			s:       NewSelector[TestModel](db).Where(C("XXX").Eq("12")),
 			wantErr: errs.NewErrUnknownField("XXX"),
 		},
 		{
 			name:    "query error",
-			s:       NewSelector[User](db).Where(C("Id").Eq("1")),
+			s:       NewSelector[TestModel](db).Where(C("Id").Eq("1")),
 			wantErr: errors.New("query error"),
 		},
 		{
 			name:    "no rows",
-			s:       NewSelector[User](db).Where(C("Id").Eq("1")),
+			s:       NewSelector[TestModel](db).Where(C("Id").Eq("1")),
 			wantErr: ErrNoRows,
 		},
 		{
 			name: "one rows",
-			s:    NewSelector[User](db).Where(C("Id").Eq("1")),
-			wantQuery: &User{
+			s:    NewSelector[TestModel](db).Where(C("Id").Eq("1")),
+			wantQuery: &TestModel{
 				Id:        1,
 				FirstName: "Da",
 				Age:       18,
@@ -153,15 +154,76 @@ func TestSelector_Get(t *testing.T) {
 	}
 }
 
-type User struct {
+// 在 orm 目录下执行
+// go test -bench=BenchmarkQuerier_Get -benchmem -benchtime=10000x
+func BenchmarkQuerier_Get(b *testing.B) {
+	sqlDB := mysqlDB()
+	defer sqlDB.Close()
+	db, err := OpenDB(sqlDB)
+	if err != nil {
+		b.Fatal(err)
+	}
+	_, err = db.db.Exec(TestModel{}.CreateSQL())
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	res, err := db.db.Exec("INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`)"+
+		"VALUES (?,?,?,?)", 12, "Deng", 18, "Ming")
+
+	if err != nil {
+		b.Fatal(err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		b.Fatal(err)
+	}
+	if affected == 0 {
+		b.Fatal()
+	}
+
+	b.Run("unsafe", func(b *testing.B) {
+		db.Creator = valuer.NewUnsafeValue
+		for i := 0; i < b.N; i++ {
+			_, err = NewSelector[TestModel](db).Get(context.Background())
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("reflect", func(b *testing.B) {
+		db.Creator = valuer.NewReflectValue
+		for i := 0; i < b.N; i++ {
+			_, err = NewSelector[TestModel](db).Get(context.Background())
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+type TestModel struct {
 	Id        int
 	FirstName string
 	Age       int8
 	LastName  *sql.NullString
 }
 
-func mysqlDB(t *testing.T) *sql.DB {
-	open, err := sql.Open("mysql", "root:123123@tcp(127.0.0.1:3306)/test?charset=utf8mb4")
-	require.NoError(t, err)
+func (TestModel) CreateSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS test_model(
+    id INTEGER PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    age INTEGER,
+    last_name TEXT NOT NULL
+)
+`
+}
+
+func mysqlDB() *sql.DB {
+	open, _ := sql.Open("mysql", "root:123123@tcp(127.0.0.1:3306)/test?charset=utf8mb4")
+	open.SetMaxOpenConns(100)
+	open.SetMaxIdleConns(2)
 	return open
 }

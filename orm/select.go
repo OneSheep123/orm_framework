@@ -4,7 +4,7 @@ package orm
 import (
 	"context"
 	"orm_framework/orm/internal/errs"
-	"reflect"
+	model2 "orm_framework/orm/model"
 	"strings"
 )
 
@@ -12,7 +12,7 @@ var _ QueryBuilder = &Selector[any]{}
 
 // Selector 用于构建Select语句
 type Selector[T any] struct {
-	model *Model
+	model *model2.Model
 	db    *DB
 	table string
 	where []Predicate
@@ -36,7 +36,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 
 	if s.table == "" {
 		s.sb.WriteByte('`')
-		s.sb.WriteString(s.model.tableName)
+		s.sb.WriteString(s.model.TableName)
 		s.sb.WriteByte('`')
 	} else {
 		s.sb.WriteString(s.table)
@@ -66,12 +66,12 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	}
 	switch expr := expression.(type) {
 	case Column:
-		c, ok := s.model.fieldMap[expr.column]
+		c, ok := s.model.FieldMap[expr.column]
 		if !ok {
 			return errs.NewErrUnknownField(expr.column)
 		}
 		s.sb.WriteByte('`')
-		s.sb.WriteString(c.colName)
+		s.sb.WriteString(c.ColName)
 		s.sb.WriteByte('`')
 	case Value:
 		s.sb.WriteByte('?')
@@ -127,39 +127,15 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 		// 这里调用的是error下的ErrNoRows
 		return nil, ErrNoRows
 	}
-	columns, err := rows.Columns()
+
+	tp := new(T)
+	meta, err := s.db.r.Get(tp)
 	if err != nil {
 		return nil, err
 	}
-
-	vals := make([]any, 0, len(columns))
-	valsElems := make([]reflect.Value, 0, len(columns))
-	for _, c := range columns {
-		fieldInfo, ok := s.model.columnMap[c]
-		if !ok {
-			return nil, errs.NewErrUnknownColumn(c)
-		}
-		// 例如: fieldInfo.tOf = int, 那么这里value 是 *int
-		value := reflect.New(fieldInfo.tOf)
-		vals = append(vals, value.Interface())
-		// 记得调用Elem，因为fieldInfo.tOf = int, 那么这里value 是 *int
-		valsElems = append(valsElems, value.Elem())
-	}
-
-	// 注意这里是vals...
-	rows.Scan(vals...)
-	res := new(T)
-	tRes := reflect.ValueOf(res)
-	for index, c := range columns {
-		fieldInfo, ok := s.model.columnMap[c]
-		if !ok {
-			return nil, errs.NewErrUnknownColumn(c)
-		}
-		tRes.Elem().FieldByName(fieldInfo.fieldName).
-			Set(valsElems[index])
-	}
-
-	return res, nil
+	val := s.db.Creator(tp, meta)
+	err = val.SetColumns(rows)
+	return tp, err
 }
 
 func (s *Selector[T]) GetMulti(ctx context.Context) (*[]T, error) {

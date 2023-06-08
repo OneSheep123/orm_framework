@@ -1,5 +1,5 @@
 // Package orm create by chencanhua in 2023/5/16
-package orm
+package model
 
 import (
 	"orm_framework/orm/internal/errs"
@@ -20,7 +20,7 @@ type registry struct {
 	models sync.Map
 }
 
-func newRegistry() *registry {
+func NewRegistry() Registry {
 	return &registry{}
 }
 
@@ -80,8 +80,8 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 	}
 	tOf = tOf.Elem()
 	numField := tOf.NumField()
-	fieldMap := map[string]*field{}
-	columnMap := map[string]*field{}
+	fieldMap := map[string]*Field{}
+	columnMap := map[string]*Field{}
 	for index := 0; index < numField; index++ {
 		f := tOf.Field(index)
 		tagMap, err := r.parseTag(f.Tag)
@@ -92,10 +92,11 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 		if columnName == "" {
 			columnName = underscoreName(f.Name)
 		}
-		fieldInfo := &field{
-			colName:   columnName,
-			fieldName: f.Name,
-			tOf:       f.Type,
+		fieldInfo := &Field{
+			ColName: columnName,
+			GoName:  f.Name,
+			Type:    f.Type,
+			Offset:  f.Offset,
 		}
 		fieldMap[f.Name] = fieldInfo
 		columnMap[columnName] = fieldInfo
@@ -112,9 +113,9 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 	}
 
 	return &Model{
-		tableName: tableName,
-		fieldMap:  fieldMap,
-		columnMap: columnMap,
+		TableName: tableName,
+		FieldMap:  fieldMap,
+		ColumnMap: columnMap,
 	}, nil
 }
 

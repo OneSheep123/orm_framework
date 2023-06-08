@@ -1,5 +1,5 @@
-// Package orm create by chencanhua in 2023/5/14
-package orm
+// Package model Package orm create by chencanhua in 2023/5/14
+package model
 
 import (
 	"orm_framework/orm/internal/errs"
@@ -10,25 +10,26 @@ type ModelOpt func(m *Model) error
 
 // Model 元数据
 type Model struct {
-	tableName string
-	fieldMap  map[string]*field
-	columnMap map[string]*field
+	TableName string
+	FieldMap  map[string]*Field
+	ColumnMap map[string]*Field
 }
 
-type field struct {
-	colName   string
-	fieldName string
-	tOf       reflect.Type
+type Field struct {
+	ColName string
+	GoName  string
+	Type    reflect.Type
+	Offset  uintptr
 }
 
 // ModelWithColumnName 支持自定义字段名
 func ModelWithColumnName(field string, name string) ModelOpt {
 	return func(m *Model) error {
-		f, ok := m.fieldMap[field]
+		f, ok := m.FieldMap[field]
 		if !ok {
 			return errs.NewErrUnknownField(field)
 		}
-		f.colName = name
+		f.ColName = name
 		return nil
 	}
 }
@@ -36,7 +37,7 @@ func ModelWithColumnName(field string, name string) ModelOpt {
 // ModelWithTableName 支持自定义表名
 func ModelWithTableName(tableName string) ModelOpt {
 	return func(m *Model) error {
-		m.tableName = tableName
+		m.TableName = tableName
 		return nil
 	}
 }

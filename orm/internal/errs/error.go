@@ -15,6 +15,8 @@ var (
 	ErrPointOnly = errors.New("orm: 只支持一级指针作为输入，例如 *User")
 
 	ErrNoRows = errors.New("orm: 未找到数据")
+
+	ErrTooManyReturnedColumns = errors.New("eorm: 过多列")
 )
 
 // NewErrUnknownField 返回代表未知字段的错误

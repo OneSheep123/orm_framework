@@ -120,6 +120,10 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 		return nil, err
 	}
 	rows, err := s.db.db.QueryContext(ctx, sql.SQL, sql.Args...)
+	// 注意这里查询完后要进行关闭，否则连接会无法释放
+	if rows != nil {
+		defer rows.Close()
+	}
 	if err != nil {
 		return nil, err
 	}

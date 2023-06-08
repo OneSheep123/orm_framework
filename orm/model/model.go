@@ -22,8 +22,8 @@ type Field struct {
 	Offset  uintptr
 }
 
-// ModelWithColumnName 支持自定义字段名
-func ModelWithColumnName(field string, name string) ModelOpt {
+// WithColumnName 支持自定义字段名
+func WithColumnName(field string, name string) ModelOpt {
 	return func(m *Model) error {
 		f, ok := m.FieldMap[field]
 		if !ok {
@@ -34,8 +34,8 @@ func ModelWithColumnName(field string, name string) ModelOpt {
 	}
 }
 
-// ModelWithTableName 支持自定义表名
-func ModelWithTableName(tableName string) ModelOpt {
+// WithTableName 支持自定义表名
+func WithTableName(tableName string) ModelOpt {
 	return func(m *Model) error {
 		m.TableName = tableName
 		return nil

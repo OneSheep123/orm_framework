@@ -22,13 +22,13 @@ func TestModelWithTableName(t *testing.T) {
 			// 我们没有对空字符串进行校验
 			name:          "empty string",
 			val:           &TestModel{},
-			opt:           ModelWithTableName(""),
+			opt:           WithTableName(""),
 			wantTableName: "",
 		},
 		{
 			name:          "table name",
 			val:           &TestModel{},
-			opt:           ModelWithTableName("test_model_t"),
+			opt:           WithTableName("test_model_t"),
 			wantTableName: "test_model_t",
 		},
 	}
@@ -58,14 +58,14 @@ func TestModelWithColumnName(t *testing.T) {
 		{
 			name:        "new name",
 			val:         &TestModel{},
-			opt:         ModelWithColumnName("FirstName", "first_name_new"),
+			opt:         WithColumnName("FirstName", "first_name_new"),
 			field:       "FirstName",
 			wantColName: "first_name_new",
 		},
 		{
 			name:        "empty new name",
 			val:         &TestModel{},
-			opt:         ModelWithColumnName("FirstName", ""),
+			opt:         WithColumnName("FirstName", ""),
 			field:       "FirstName",
 			wantColName: "",
 		},
@@ -73,7 +73,7 @@ func TestModelWithColumnName(t *testing.T) {
 			// 不存在的字段
 			name:    "invalid Field name",
 			val:     &TestModel{},
-			opt:     ModelWithColumnName("FirstNameXXX", "first_name"),
+			opt:     WithColumnName("FirstNameXXX", "first_name"),
 			field:   "FirstNameXXX",
 			wantErr: errs.NewErrUnknownField("FirstNameXXX"),
 		},

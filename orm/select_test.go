@@ -12,6 +12,7 @@ import (
 	"orm_framework/orm/internal/errs"
 	"orm_framework/orm/internal/valuer"
 	"testing"
+	"time"
 )
 
 func TestSelector_Build(t *testing.T) {
@@ -223,7 +224,10 @@ CREATE TABLE IF NOT EXISTS test_model(
 
 func mysqlDB() *sql.DB {
 	open, _ := sql.Open("mysql", "root:123123@tcp(127.0.0.1:3306)/test?charset=utf8mb4")
+	// 设置最大连接数相关操作
 	open.SetMaxOpenConns(100)
 	open.SetMaxIdleConns(2)
+	open.SetConnMaxIdleTime(1 * time.Millisecond)
+	open.SetConnMaxLifetime(1 * time.Millisecond)
 	return open
 }

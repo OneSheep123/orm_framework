@@ -2,8 +2,9 @@
 package orm
 
 type Aggregate struct {
-	fn  string
-	arg string
+	fn    string
+	arg   string
+	alias string
 }
 
 func (a Aggregate) selectable() {}
@@ -12,6 +13,14 @@ func Avg(c string) Aggregate {
 	return Aggregate{
 		fn:  "AVG",
 		arg: c,
+	}
+}
+
+func (a Aggregate) As(alias string) Aggregate {
+	return Aggregate{
+		fn:    "AVG",
+		arg:   a.arg,
+		alias: alias,
 	}
 }
 

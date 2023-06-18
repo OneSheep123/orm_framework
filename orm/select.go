@@ -69,6 +69,8 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}, nil
 }
 
+// buildExpression 构建Where后面部分
+// 这里case都实现了expr方法
 func (s *Selector[T]) buildExpression(expression Expression) error {
 	if expression == nil {
 		return nil
@@ -84,7 +86,10 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 		s.sb.WriteByte('`')
 	case Value:
 		s.sb.WriteByte('?')
-		s.args = append(s.args, expr.val)
+		s.addArgs(expr.val)
+	case RawExpr:
+		s.sb.WriteString(expr.raw)
+		s.addArgs(expr.args...)
 	case Predicate:
 		_, lp := expr.left.(Predicate)
 		if lp {
@@ -96,6 +101,12 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 		if lp {
 			s.sb.WriteByte(')')
 		}
+
+		// 可能只有左边
+		if expr.op == "" {
+			return nil
+		}
+
 		s.sb.WriteByte(' ')
 		s.sb.WriteString(string(expr.op))
 		s.sb.WriteByte(' ')
@@ -113,6 +124,8 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	return nil
 }
 
+// buildColumns 构建select后面部分
+// 这里的case都有实现了selectable接口
 func (s *Selector[T]) buildColumns() error {
 	if len(s.columns) == 0 {
 		s.sb.WriteByte('*')
@@ -131,6 +144,7 @@ func (s *Selector[T]) buildColumns() error {
 			}
 			s.sb.WriteString(fd.ColName)
 			s.sb.WriteByte('`')
+			s.buildAs(val.alias)
 		case Aggregate:
 			s.sb.WriteString(val.fn)
 			s.sb.WriteString("(`")
@@ -140,9 +154,33 @@ func (s *Selector[T]) buildColumns() error {
 			}
 			s.sb.WriteString(fd.ColName)
 			s.sb.WriteString("`)")
+			s.buildAs(val.alias)
+		case RawExpr:
+			s.sb.WriteString(val.raw)
+			s.addArgs(val.args...)
 		}
 	}
 	return nil
+}
+
+// buildAs 构建as
+func (s *Selector[T]) buildAs(alias string) {
+	if alias != "" {
+		s.sb.WriteString(" AS ")
+		s.sb.WriteByte('`')
+		s.sb.WriteString(alias)
+		s.sb.WriteByte('`')
+	}
+}
+
+func (s *Selector[T]) addArgs(args ...any) {
+	if len(args) == 0 {
+		return
+	}
+	if s.args == nil {
+		s.args = make([]any, 0, 8)
+	}
+	s.args = append(s.args, args...)
 }
 
 func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {

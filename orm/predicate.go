@@ -4,10 +4,12 @@ package orm
 type op string
 
 const (
-	opEq  = "="
-	opNot = "NOT"
-	opOr  = "OR"
-	opAnd = "And"
+	opEQ  = "="
+	opLT  = "<"
+	opGT  = ">"
+	opAND = "AND"
+	opOR  = "OR"
+	opNOT = "NOT"
 )
 
 /**
@@ -24,7 +26,7 @@ func (Predicate) expr() {}
 
 func Not(right Predicate) Predicate {
 	return Predicate{
-		op:    opNot,
+		op:    opNOT,
 		right: right,
 	}
 }
@@ -32,7 +34,7 @@ func Not(right Predicate) Predicate {
 func (left Predicate) Or(right Predicate) Predicate {
 	return Predicate{
 		left:  left,
-		op:    opOr,
+		op:    opOR,
 		right: right,
 	}
 }
@@ -40,37 +42,10 @@ func (left Predicate) Or(right Predicate) Predicate {
 func (left Predicate) And(right Predicate) Predicate {
 	return Predicate{
 		left:  left,
-		op:    opAnd,
+		op:    opAND,
 		right: right,
 	}
 }
-
-type Column struct {
-	column string
-}
-
-func (Column) expr() {}
-
-func (Column) selectable() {}
-
-// sub.C("name").Eq(12)
-func (c Column) Eq(arg any) Predicate {
-	return Predicate{
-		left:  c,
-		op:    opEq,
-		right: Value{val: arg},
-	}
-}
-
-func C(name string) Column {
-	return Column{column: name}
-}
-
-type Value struct {
-	val any
-}
-
-func (Value) expr() {}
 
 // Expression 是一个标记接口，代表表达式
 type Expression interface {

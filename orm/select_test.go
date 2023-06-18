@@ -58,7 +58,7 @@ func TestSelector_Build(t *testing.T) {
 				C("Age").Eq(12),
 			),
 			wantQuery: &Query{
-				SQL: "SELECT * FROM `test_model` WHERE ((`first_name` = ?) OR (`last_name` = ?)) And (`age` = ?);",
+				SQL: "SELECT * FROM `test_model` WHERE ((`first_name` = ?) OR (`last_name` = ?)) AND (`age` = ?);",
 				Args: []any{
 					"zhangsan", "list", 12,
 				},
@@ -91,6 +91,43 @@ func TestSelector_Build(t *testing.T) {
 			builder: NewSelector[TestModel](db).Select(Avg("Age")),
 			wantQuery: &Query{
 				SQL: "SELECT AVG(`age`) FROM `test_model`;",
+			},
+		},
+		{
+			name:    "raw expression",
+			builder: NewSelector[TestModel](db).Select(Raw("COUNT(DISTINCT `first_name`)")),
+			wantQuery: &Query{
+				SQL: "SELECT COUNT(DISTINCT `first_name`) FROM `test_model`;",
+			},
+		},
+		{
+			// 使用 RawExpr
+			name: "raw expression",
+			builder: NewSelector[TestModel](db).
+				Where(Raw("`age` < ?", 18).AsPredicate()),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `age` < ?;",
+				Args: []any{18},
+			},
+		},
+		// 别名
+		{
+			name: "alias",
+			builder: NewSelector[TestModel](db).
+				Select(C("Id").As("my_id"),
+					Avg("Age").As("avg_age")),
+			wantQuery: &Query{
+				SQL: "SELECT `id` AS `my_id`,AVG(`age`) AS `avg_age` FROM `test_model`;",
+			},
+		},
+		// WHERE 忽略别名
+		{
+			name: "where ignore alias",
+			builder: NewSelector[TestModel](db).
+				Where(C("Id").As("my_id").LT(100)),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `id` < ?;",
+				Args: []any{100},
 			},
 		},
 	}

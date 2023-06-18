@@ -4,20 +4,25 @@ package orm
 import (
 	"context"
 	"orm_framework/orm/internal/errs"
-	model2 "orm_framework/orm/model"
+	"orm_framework/orm/model"
 	"strings"
 )
 
 var _ QueryBuilder = &Selector[any]{}
 
+type Selectable interface {
+	selectable()
+}
+
 // Selector 用于构建Select语句
 type Selector[T any] struct {
-	model *model2.Model
-	db    *DB
-	table string
-	where []Predicate
-	args  []any
-	sb    strings.Builder
+	model   *model.Model
+	db      *DB
+	table   string
+	where   []Predicate
+	args    []any
+	sb      strings.Builder
+	columns []Selectable
 }
 
 func NewSelector[T any](db *DB) *Selector[T] {
@@ -32,8 +37,12 @@ func (s *Selector[T]) Build() (*Query, error) {
 		return nil, err
 	}
 	s.model = m
-	s.sb.WriteString("SELECT * FROM ")
-
+	s.sb.WriteString("SELECT ")
+	err = s.buildColumns()
+	if err != nil {
+		return nil, err
+	}
+	s.sb.WriteString(" FROM ")
 	if s.table == "" {
 		s.sb.WriteByte('`')
 		s.sb.WriteString(s.model.TableName)
@@ -102,6 +111,43 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 		}
 	}
 	return nil
+}
+
+func (s *Selector[T]) buildColumns() error {
+	if len(s.columns) == 0 {
+		s.sb.WriteByte('*')
+		return nil
+	}
+	for i, c := range s.columns {
+		if i > 0 {
+			s.sb.WriteByte(',')
+		}
+		switch val := c.(type) {
+		case Column:
+			s.sb.WriteByte('`')
+			fd, ok := s.model.FieldMap[val.column]
+			if !ok {
+				return errs.NewErrUnknownField(val.column)
+			}
+			s.sb.WriteString(fd.ColName)
+			s.sb.WriteByte('`')
+		case Aggregate:
+			s.sb.WriteString(val.fn)
+			s.sb.WriteString("(`")
+			fd, ok := s.model.FieldMap[val.arg]
+			if !ok {
+				return errs.NewErrUnknownField(val.arg)
+			}
+			s.sb.WriteString(fd.ColName)
+			s.sb.WriteString("`)")
+		}
+	}
+	return nil
+}
+
+func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {
+	s.columns = cols
+	return s
 }
 
 func (s *Selector[T]) Where(pre ...Predicate) *Selector[T] {

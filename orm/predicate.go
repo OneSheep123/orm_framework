@@ -51,6 +51,8 @@ type Column struct {
 
 func (Column) expr() {}
 
+func (Column) selectable() {}
+
 // sub.C("name").Eq(12)
 func (c Column) Eq(arg any) Predicate {
 	return Predicate{

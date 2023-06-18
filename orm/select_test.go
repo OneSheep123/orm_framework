@@ -12,7 +12,6 @@ import (
 	"orm_framework/orm/internal/errs"
 	"orm_framework/orm/internal/valuer"
 	"testing"
-	"time"
 )
 
 func TestSelector_Build(t *testing.T) {
@@ -73,6 +72,26 @@ func TestSelector_Build(t *testing.T) {
 				C("Age").Eq(12),
 			),
 			wantErr: errs.NewErrUnknownField("XXX"),
+		},
+
+		{
+			name:    "invalid column",
+			builder: NewSelector[TestModel](db).Select(Avg("Invalid")),
+			wantErr: errs.NewErrUnknownField("Invalid"),
+		},
+		{
+			name:    "partial columns",
+			builder: NewSelector[TestModel](db).Select(C("Id"), C("FirstName")),
+			wantQuery: &Query{
+				SQL: "SELECT `id`,`first_name` FROM `test_model`;",
+			},
+		},
+		{
+			name:    "avg",
+			builder: NewSelector[TestModel](db).Select(Avg("Age")),
+			wantQuery: &Query{
+				SQL: "SELECT AVG(`age`) FROM `test_model`;",
+			},
 		},
 	}
 
@@ -227,7 +246,5 @@ func mysqlDB() *sql.DB {
 	// 设置最大连接数相关操作
 	open.SetMaxOpenConns(100)
 	open.SetMaxIdleConns(2)
-	open.SetConnMaxIdleTime(1 * time.Millisecond)
-	open.SetConnMaxLifetime(1 * time.Millisecond)
 	return open
 }

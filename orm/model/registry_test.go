@@ -170,6 +170,32 @@ func TestRegistry_get(t *testing.T) {
 						Offset:  32,
 					},
 				},
+				Fields: []*Field{
+					{
+						ColName: "id",
+						Type:    reflect.TypeOf(int64(0)),
+						GoName:  "Id",
+						Offset:  0,
+					},
+					{
+						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+						Offset:  8,
+					},
+					{
+						ColName: "age",
+						Type:    reflect.TypeOf(int8(0)),
+						GoName:  "Age",
+						Offset:  24,
+					},
+					{
+						ColName: "last_name",
+						Type:    reflect.TypeOf(&sql.NullString{}),
+						GoName:  "LastName",
+						Offset:  32,
+					},
+				},
 			},
 			wantError: nil,
 			cacheSize: 1,
@@ -226,6 +252,13 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "ID",
 					},
 				},
+				Fields: []*Field{
+					{
+						ColName: "id",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "ID",
+					},
+				},
 			},
 		},
 		{
@@ -249,6 +282,13 @@ func TestRegistry_get(t *testing.T) {
 				},
 				ColumnMap: map[string]*Field{
 					"first_name": {
+						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+					},
+				},
+				Fields: []*Field{
+					{
 						ColName: "first_name",
 						Type:    reflect.TypeOf(""),
 						GoName:  "FirstName",
@@ -294,6 +334,13 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "FirstName",
 					},
 				},
+				Fields: []*Field{
+					{
+						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+					},
+				},
 			},
 		},
 
@@ -311,6 +358,13 @@ func TestRegistry_get(t *testing.T) {
 				},
 				ColumnMap: map[string]*Field{
 					"first_name": {
+						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+					},
+				},
+				Fields: []*Field{
+					{
 						ColName: "first_name",
 						Type:    reflect.TypeOf(""),
 						GoName:  "FirstName",
@@ -337,6 +391,13 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "FirstName",
 					},
 				},
+				Fields: []*Field{
+					{
+						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+					},
+				},
 			},
 		},
 
@@ -354,6 +415,13 @@ func TestRegistry_get(t *testing.T) {
 				},
 				ColumnMap: map[string]*Field{
 					"first_name": {
+						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+					},
+				},
+				Fields: []*Field{
+					{
 						ColName: "first_name",
 						Type:    reflect.TypeOf(""),
 						GoName:  "FirstName",

@@ -82,6 +82,7 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 	numField := tOf.NumField()
 	fieldMap := map[string]*Field{}
 	columnMap := map[string]*Field{}
+	fields := make([]*Field, 0, numField)
 	for index := 0; index < numField; index++ {
 		f := tOf.Field(index)
 		tagMap, err := r.parseTag(f.Tag)
@@ -100,6 +101,7 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 		}
 		fieldMap[f.Name] = fieldInfo
 		columnMap[columnName] = fieldInfo
+		fields = append(fields, fieldInfo)
 	}
 
 	// 自定义表名
@@ -116,6 +118,7 @@ func (r *registry) parseModel(entity any) (*Model, error) {
 		TableName: tableName,
 		FieldMap:  fieldMap,
 		ColumnMap: columnMap,
+		Fields:    fields,
 	}, nil
 }
 

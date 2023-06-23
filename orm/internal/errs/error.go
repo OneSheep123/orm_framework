@@ -17,6 +17,7 @@ var (
 	ErrNoRows = errors.New("orm: 未找到数据")
 
 	ErrTooManyReturnedColumns = errors.New("eorm: 过多列")
+	ErrInsertZeroRow          = errors.New("orm: 插入 0 行")
 )
 
 // NewErrUnknownField 返回代表未知字段的错误

@@ -13,6 +13,7 @@ type Model struct {
 	TableName string
 	FieldMap  map[string]*Field
 	ColumnMap map[string]*Field
+	Fields    []*Field
 }
 
 type Field struct {

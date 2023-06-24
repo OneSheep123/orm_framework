@@ -6,8 +6,10 @@ type RawExpr struct {
 	args []interface{}
 }
 
+// selectable 实现这个接口可以在Select后进行插入
 func (r RawExpr) selectable() {}
 
+// expr 实现这个接口可以在Where后进行插入
 func (r RawExpr) expr() {}
 
 func (r RawExpr) AsPredicate() Predicate {

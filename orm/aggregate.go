@@ -7,6 +7,7 @@ type Aggregate struct {
 	alias string
 }
 
+// selectable 实现这个接口可以在Select后进行插入
 func (a Aggregate) selectable() {}
 
 func Avg(c string) Aggregate {

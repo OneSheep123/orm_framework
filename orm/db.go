@@ -7,8 +7,8 @@ import (
 	"orm_framework/orm/model"
 )
 
-// DB 使用隔离的DB维护一个注册中心
 type DB struct {
+	// r 使用隔离的DB维护一个注册中心
 	r model.Registry
 	// db 使用到了装饰器模式
 	db *sql.DB

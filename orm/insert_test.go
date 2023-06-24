@@ -138,3 +138,94 @@ func TestInserter_Build(t *testing.T) {
 		})
 	}
 }
+
+func TestUpsert_SQLite3_Build(t *testing.T) {
+	// todo: 临时使用mysql的db进行验证sqlite语句的组装情况
+	d := mysqlDB()
+	db, _ := OpenDB(d, WithDialect(SQLLiteDialect))
+	testCases := []struct {
+		name      string
+		q         QueryBuilder
+		wantQuery *Query
+		wantErr   error
+	}{
+		{
+			// upsert
+			name: "upsert",
+			q: NewInserter[TestModel](db).Values(
+				&TestModel{
+					Id:        1,
+					FirstName: "Deng",
+					Age:       18,
+					LastName:  &sql.NullString{String: "Ming", Valid: true},
+				}).OnDuplicateKey().ConflictColumns("Id").
+				Update(Assign("FirstName", "Da")),
+			wantQuery: &Query{
+				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?) " +
+					"ON CONFLICT(`id`) DO UPDATE SET `first_name`=?;",
+				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true}, "Da"},
+			},
+		},
+		{
+			// upsert invalid column
+			name: "upsert invalid column",
+			q: NewInserter[TestModel](db).Values(
+				&TestModel{
+					Id:        1,
+					FirstName: "Deng",
+					Age:       18,
+					LastName:  &sql.NullString{String: "Ming", Valid: true},
+				}).OnDuplicateKey().ConflictColumns("Id").
+				Update(Assign("Invalid", "Da")),
+			wantErr: errs.NewErrUnknownField("Invalid"),
+		},
+		{
+			// conflict invalid column
+			name: "conflict invalid column",
+			q: NewInserter[TestModel](db).Values(
+				&TestModel{
+					Id:        1,
+					FirstName: "Deng",
+					Age:       18,
+					LastName:  &sql.NullString{String: "Ming", Valid: true},
+				}).OnDuplicateKey().ConflictColumns("Invalid").
+				Update(Assign("FirstName", "Da")),
+			wantErr: errs.NewErrUnknownField("Invalid"),
+		},
+		{
+			// 使用原本插入的值
+			name: "upsert use insert value",
+			q: NewInserter[TestModel](db).Values(
+				&TestModel{
+					Id:        1,
+					FirstName: "Deng",
+					Age:       18,
+					LastName:  &sql.NullString{String: "Ming", Valid: true},
+				},
+				&TestModel{
+					Id:        2,
+					FirstName: "Da",
+					Age:       19,
+					LastName:  &sql.NullString{String: "Ming", Valid: true},
+				}).OnDuplicateKey().ConflictColumns("Id").
+				Update(C("FirstName"), C("LastName")),
+			wantQuery: &Query{
+				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?),(?,?,?,?) " +
+					"ON CONFLICT(`id`) DO UPDATE SET `first_name`=excluded.`first_name`,`last_name`=excluded.`last_name`;",
+				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true},
+					2, "Da", int8(19), &sql.NullString{String: "Ming", Valid: true}},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			query, err := tc.q.Build()
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantQuery, query)
+		})
+	}
+}

@@ -5,35 +5,48 @@ import (
 	"orm_framework/orm/internal/errs"
 	"orm_framework/orm/model"
 	"reflect"
-	"strings"
 )
 
-type OnDuplicateKeyBuilder[T any] struct {
+type UpsertBuilder[T any] struct {
 	i *Inserter[T]
+	// conflictColumns 这里只是作为临时变量存储，后续会赋值给Upsert内的conflictColumns
+	conflictColumns []string
 }
 
-type OnDuplicateKey struct {
-	assigns []Assignable
+type Upsert struct {
+	assigns         []Assignable
+	conflictColumns []string
 }
 
-func (o *OnDuplicateKeyBuilder[T]) Update(assigns ...Assignable) *Inserter[T] {
-	o.i.onDuplicate = &OnDuplicateKey{
-		assigns: assigns,
+func (o *UpsertBuilder[T]) ConflictColumns(conflictColumns ...string) *UpsertBuilder[T] {
+	o.conflictColumns = conflictColumns
+	return o
+}
+
+// Update 也可以看做是一个终结方法，重新回到 Inserter 里面
+func (o *UpsertBuilder[T]) Update(assigns ...Assignable) *Inserter[T] {
+	o.i.onDuplicate = &Upsert{
+		assigns:         assigns,
+		conflictColumns: o.conflictColumns,
 	}
 	return o.i
 }
 
 type Inserter[T any] struct {
-	values  []*T
-	db      *DB
-	sb      strings.Builder
+	values []*T
+	db     *DB
+	builder
 	columns []string
 	// 使用一个 OnDuplicate 结构体，从而允许将来扩展更加复杂的行为
-	onDuplicate *OnDuplicateKey
+	onDuplicate *Upsert
 }
 
 func NewInserter[T any](db *DB) *Inserter[T] {
 	return &Inserter[T]{
+		builder: builder{
+			dialect: db.dialect,
+			quoter:  db.dialect.quoter(),
+		},
 		db: db,
 	}
 }
@@ -49,8 +62,8 @@ func (i *Inserter[T]) Values(vals ...*T) *Inserter[T] {
 	return i
 }
 
-func (i *Inserter[T]) OnDuplicateKey() *OnDuplicateKeyBuilder[T] {
-	return &OnDuplicateKeyBuilder[T]{
+func (i *Inserter[T]) OnDuplicateKey() *UpsertBuilder[T] {
+	return &UpsertBuilder[T]{
 		i: i,
 	}
 }
@@ -63,9 +76,10 @@ func (i *Inserter[T]) Build() (*Query, error) {
 	if err != nil {
 		return nil, err
 	}
-	i.sb.WriteString("INSERT INTO `")
-	i.sb.WriteString(m.TableName)
-	i.sb.WriteString("`(")
+	i.model = m
+	i.sb.WriteString("INSERT INTO ")
+	i.quote(m.TableName)
+	i.sb.WriteString("(")
 	fields := m.Fields
 	if len(i.columns) != 0 {
 		fields = make([]*model.Field, 0, len(i.columns))
@@ -81,12 +95,9 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		if index > 0 {
 			i.sb.WriteByte(',')
 		}
-		i.sb.WriteByte('`')
-		i.sb.WriteString(field.ColName)
-		i.sb.WriteByte('`')
+		i.quote(field.ColName)
 	}
 	i.sb.WriteString(") VALUES")
-	args := make([]any, 0, len(i.values)*len(fields))
 	for vIndex, val := range i.values {
 		if vIndex > 0 {
 			i.sb.WriteByte(',')
@@ -98,45 +109,21 @@ func (i *Inserter[T]) Build() (*Query, error) {
 			}
 			i.sb.WriteByte('?')
 			v := reflect.ValueOf(val).Elem().FieldByName(field.GoName).Interface()
-			args = append(args, v)
+			i.addArgs(v)
 		}
 		i.sb.WriteByte(')')
 	}
 
 	if i.onDuplicate != nil {
-		i.sb.WriteString(" ON DUPLICATE KEY UPDATE ")
-		for index, a := range i.onDuplicate.assigns {
-			if index > 0 {
-				i.sb.WriteByte(',')
-			}
-			switch assign := a.(type) {
-			case Assignment:
-				i.sb.WriteByte('`')
-				field, ok := m.FieldMap[assign.column]
-				if !ok {
-					return nil, errs.NewErrUnknownField(assign.column)
-				}
-				i.sb.WriteString(field.ColName)
-				i.sb.WriteByte('`')
-				i.sb.WriteString(`=?`)
-				args = append(args, assign.val)
-			case Column:
-				i.sb.WriteByte('`')
-				fd, ok := m.FieldMap[assign.column]
-				if !ok {
-					return nil, errs.NewErrUnknownField(assign.column)
-				}
-				i.sb.WriteString(fd.ColName)
-				i.sb.WriteString("`=VALUES(`")
-				i.sb.WriteString(fd.ColName)
-				i.sb.WriteString("`)")
-			}
+		err = i.dialect.buildOnUpsert(&i.builder, i.onDuplicate)
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	i.sb.WriteByte(';')
 	return &Query{
 		SQL:  i.sb.String(),
-		Args: args,
+		Args: i.args,
 	}, nil
 }

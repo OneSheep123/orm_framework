@@ -3,12 +3,7 @@ package orm
 
 import (
 	"context"
-	"orm_framework/orm/internal/errs"
-	"orm_framework/orm/model"
-	"strings"
 )
-
-var _ QueryBuilder = &Selector[any]{}
 
 type Selectable interface {
 	selectable()
@@ -16,17 +11,19 @@ type Selectable interface {
 
 // Selector 用于构建Select语句
 type Selector[T any] struct {
-	model   *model.Model
 	db      *DB
 	table   string
 	where   []Predicate
-	args    []any
-	sb      strings.Builder
 	columns []Selectable
+	builder
 }
 
 func NewSelector[T any](db *DB) *Selector[T] {
 	return &Selector[T]{
+		builder: builder{
+			dialect: db.dialect,
+			quoter:  db.dialect.quoter(),
+		},
 		db: db,
 	}
 }
@@ -44,9 +41,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}
 	s.sb.WriteString(" FROM ")
 	if s.table == "" {
-		s.sb.WriteByte('`')
-		s.sb.WriteString(s.model.TableName)
-		s.sb.WriteByte('`')
+		s.quote(s.model.TableName)
 	} else {
 		s.sb.WriteString(s.table)
 	}
@@ -58,7 +53,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 		for index := 1; index < len(s.where); index++ {
 			pre = pre.And(s.where[index])
 		}
-		if err := s.buildExpression(pre); err != nil {
+		if err = s.buildExpression(pre); err != nil {
 			return nil, err
 		}
 	}
@@ -77,13 +72,10 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	}
 	switch expr := expression.(type) {
 	case Column:
-		c, ok := s.model.FieldMap[expr.column]
-		if !ok {
-			return errs.NewErrUnknownField(expr.column)
+		err := s.buildColumn(expr.column)
+		if err != nil {
+			return err
 		}
-		s.sb.WriteByte('`')
-		s.sb.WriteString(c.ColName)
-		s.sb.WriteByte('`')
 	case Value:
 		s.sb.WriteByte('?')
 		s.addArgs(expr.val)
@@ -137,23 +129,19 @@ func (s *Selector[T]) buildColumns() error {
 		}
 		switch val := c.(type) {
 		case Column:
-			s.sb.WriteByte('`')
-			fd, ok := s.model.FieldMap[val.column]
-			if !ok {
-				return errs.NewErrUnknownField(val.column)
+			err := s.buildColumn(val.column)
+			if err != nil {
+				return err
 			}
-			s.sb.WriteString(fd.ColName)
-			s.sb.WriteByte('`')
 			s.buildAs(val.alias)
 		case Aggregate:
 			s.sb.WriteString(val.fn)
-			s.sb.WriteString("(`")
-			fd, ok := s.model.FieldMap[val.arg]
-			if !ok {
-				return errs.NewErrUnknownField(val.arg)
+			s.sb.WriteString("(")
+			err := s.buildColumn(val.arg)
+			if err != nil {
+				return err
 			}
-			s.sb.WriteString(fd.ColName)
-			s.sb.WriteString("`)")
+			s.sb.WriteString(")")
 			s.buildAs(val.alias)
 		case RawExpr:
 			s.sb.WriteString(val.raw)
@@ -167,9 +155,7 @@ func (s *Selector[T]) buildColumns() error {
 func (s *Selector[T]) buildAs(alias string) {
 	if alias != "" {
 		s.sb.WriteString(" AS ")
-		s.sb.WriteByte('`')
-		s.sb.WriteString(alias)
-		s.sb.WriteByte('`')
+		s.quote(alias)
 	}
 }
 

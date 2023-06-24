@@ -13,6 +13,7 @@ type DB struct {
 	// db 使用到了装饰器模式
 	db *sql.DB
 	valuer.Creator
+	dialect Dialect
 }
 
 type DBOptions func(db *DB)
@@ -32,6 +33,7 @@ func OpenDB(db *sql.DB, opts ...DBOptions) (*DB, error) {
 		r:       model.NewRegistry(),
 		db:      db,
 		Creator: valuer.NewUnsafeValue,
+		dialect: MySQLDialect,
 	}
 	for _, opt := range opts {
 		opt(res)
@@ -39,13 +41,31 @@ func OpenDB(db *sql.DB, opts ...DBOptions) (*DB, error) {
 	return res, nil
 }
 
-func DBWithRegistry(r model.Registry) DBOptions {
+func WithMySQLDialect() DBOptions {
+	return func(db *DB) {
+		db.dialect = MySQLDialect
+	}
+}
+
+func WithSqlite3Dialect() DBOptions {
+	return func(db *DB) {
+		db.dialect = SQLLiteDialect
+	}
+}
+
+func WithDialect(dialect Dialect) DBOptions {
+	return func(db *DB) {
+		db.dialect = dialect
+	}
+}
+
+func WithRegistry(r model.Registry) DBOptions {
 	return func(db *DB) {
 		db.r = r
 	}
 }
 
-func DBWithReflectValue() DBOptions {
+func WithReflectValue() DBOptions {
 	return func(db *DB) {
 		db.Creator = valuer.NewReflectValue
 	}

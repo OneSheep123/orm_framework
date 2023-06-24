@@ -39,6 +39,10 @@ func NewErrInvalidTagContent(tag string) error {
 	return fmt.Errorf("orm: 未知的标签 %v", tag)
 }
 
+func NewErrUnsupportedAssignableType(exp any) error {
+	return fmt.Errorf("orm: 不支持的 Assignable 表达式 %v", exp)
+}
+
 // 后面可以考虑支持错误码
 // func NewErrUnsupportedExpressionType(exp any) error {
 // 	return fmt.Errorf("orm-50001: 不支持的表达式 %v", exp)

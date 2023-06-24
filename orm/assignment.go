@@ -1,6 +1,9 @@
 // create by chencanhua in 2023/6/23
 package orm
 
+// Assignable 标记接口，
+// 实现该接口意味着可以用于赋值语句，
+// 用于在 UPDATE 和 UPSERT 中
 type Assignable interface {
 	assign()
 }

@@ -184,10 +184,9 @@ func TestSelector_Build(t *testing.T) {
 			builder: NewSelector[TestModel](db).
 				Where(C("FirstName").Eq("zhangsan")).
 				GroupBy(C("LastName"), C("Id")).
-				// todo: 后续优化一下
-				Having(Avg("Id").LT(12).AsPredicate()),
+				Having(Avg("Id").LT(12)),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? GROUP BY `last_name`,`id` HAVING AVG(`id`)<?;",
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? GROUP BY `last_name`,`id` HAVING AVG(`id`) < ?;",
 				Args: []any{"zhangsan", 12},
 			},
 		},

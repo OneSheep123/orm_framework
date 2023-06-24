@@ -134,9 +134,6 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 			return err
 		}
 		s.sb.WriteByte(')')
-		s.sb.WriteString(expr.op)
-		s.sb.WriteByte('?')
-		s.addArgs(expr.val)
 	case Predicate:
 		_, lp := expr.left.(Predicate)
 		if lp {

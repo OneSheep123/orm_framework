@@ -5,8 +5,6 @@ type Aggregate struct {
 	fn    string
 	arg   string
 	alias string
-	op    string
-	val   any
 }
 
 // selectable 实现这个接口可以在Select后进行插入
@@ -49,12 +47,11 @@ func Sum(c string) Aggregate {
 	}
 }
 
-func (a Aggregate) LT(val any) Aggregate {
-	return Aggregate{
-		fn:  a.fn,
-		arg: a.arg,
-		op:  opLT,
-		val: val,
+func (a Aggregate) LT(val any) Predicate {
+	return Predicate{
+		left:  a,
+		op:    opLT,
+		right: exprOf(val),
 	}
 }
 

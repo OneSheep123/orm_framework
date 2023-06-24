@@ -1,9 +1,17 @@
 // create by chencanhua in 2023/6/18
 package orm
 
+type sortType string
+
+const (
+	ASC  sortType = "ASC"
+	DESC sortType = "DESC"
+)
+
 type Column struct {
 	column string
 	alias  string
+	sort   sortType
 }
 
 func (Column) expr() {}
@@ -48,6 +56,22 @@ func exprOf(arg any) Expression {
 
 func C(name string) Column {
 	return Column{column: name}
+}
+
+func (c Column) ASC() Column {
+	return Column{
+		column: c.column,
+		alias:  c.alias,
+		sort:   ASC,
+	}
+}
+
+func (c Column) DESC() Column {
+	return Column{
+		column: c.column,
+		alias:  c.alias,
+		sort:   DESC,
+	}
 }
 
 func (c Column) As(alias string) Column {

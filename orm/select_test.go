@@ -130,6 +130,99 @@ func TestSelector_Build(t *testing.T) {
 				Args: []any{100},
 			},
 		},
+		// group by
+		{
+			// 调用了，但是啥也没传
+			name:    "group none",
+			builder: NewSelector[TestModel](db).GroupBy(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `test_model`;",
+			},
+		},
+		{
+			name: "group single",
+			builder: NewSelector[TestModel](db).
+				Where(C("FirstName").As("first_n").Eq("zhangsan")).
+				GroupBy(C("LastName")),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? GROUP BY `last_name`;",
+				Args: []any{"zhangsan"},
+			},
+		},
+		{
+			name: "group multiple",
+			builder: NewSelector[TestModel](db).
+				Where(C("FirstName").As("first_n").Eq("zhangsan")).
+				GroupBy(C("LastName"), C("Id")),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? GROUP BY `last_name`,`id`;",
+				Args: []any{"zhangsan"},
+			},
+		},
+		// having
+		{
+			// 调用了，但是啥也没传
+			name:    "having none",
+			builder: NewSelector[TestModel](db).GroupBy(C("Age")).Having(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `test_model` GROUP BY `age`;",
+			},
+		},
+		{
+			name: "having",
+			builder: NewSelector[TestModel](db).
+				Where(C("FirstName").Eq("zhangsan")).
+				GroupBy(C("LastName"), C("Id")).
+				Having(C("Id").LT(12), C("Id").GT(1)),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? GROUP BY `last_name`,`id` HAVING (`id` < ?) AND (`id` > ?);",
+				Args: []any{"zhangsan", 12, 1},
+			},
+		},
+		{
+			name: "having avg",
+			builder: NewSelector[TestModel](db).
+				Where(C("FirstName").Eq("zhangsan")).
+				GroupBy(C("LastName"), C("Id")).
+				// todo: 后续优化一下
+				Having(Avg("Id").LT(12).AsPredicate()),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? GROUP BY `last_name`,`id` HAVING AVG(`id`)<?;",
+				Args: []any{"zhangsan", 12},
+			},
+		},
+		// order by
+		{
+			name: "sort",
+			builder: NewSelector[TestModel](db).
+				Where(C("FirstName").Eq("zhangsan")).
+				OrderBy(C("Id").ASC()),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? ORDER BY `id` ASC;",
+				Args: []any{"zhangsan"},
+			},
+		},
+		{
+			name: "sort muti",
+			builder: NewSelector[TestModel](db).
+				Where(C("FirstName").Eq("zhangsan")).
+				OrderBy(C("Id").ASC(), C("LastName").DESC()),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? ORDER BY `id` ASC,`last_name` DESC;",
+				Args: []any{"zhangsan"},
+			},
+		},
+		// offset limit
+		{
+			name: "offset limit",
+			builder: NewSelector[TestModel](db).
+				Where(C("FirstName").Eq("zhangsan")).
+				Page(1).Size(20),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `first_name` = ? OFFSET ?, LIMIT ?;",
+				Args: []any{"zhangsan", int64(0), int64(20)},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

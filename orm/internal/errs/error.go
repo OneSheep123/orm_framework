@@ -18,6 +18,7 @@ var (
 
 	ErrTooManyReturnedColumns = errors.New("eorm: 过多列")
 	ErrInsertZeroRow          = errors.New("orm: 插入 0 行")
+	ErrOffset                 = errors.New("orm: 当前偏移量计算有误")
 )
 
 // NewErrUnknownField 返回代表未知字段的错误

@@ -3,6 +3,7 @@ package orm
 
 import (
 	"context"
+	"orm_framework/orm/internal/errs"
 )
 
 type Selectable interface {
@@ -14,7 +15,12 @@ type Selector[T any] struct {
 	db      *DB
 	table   string
 	where   []Predicate
+	group   []Expression
+	having  []Predicate
+	orderby []Column
 	columns []Selectable
+	limit   int64
+	offset  int64
 	builder
 }
 
@@ -57,6 +63,44 @@ func (s *Selector[T]) Build() (*Query, error) {
 			return nil, err
 		}
 	}
+
+	if len(s.group) > 0 {
+		s.sb.WriteString(" GROUP BY ")
+		if err = s.buildGroupBy(); err != nil {
+			return nil, err
+		}
+	}
+
+	if len(s.having) > 0 {
+		s.sb.WriteString(" HAVING ")
+		pre := s.having[0]
+		for index := 1; index < len(s.having); index++ {
+			pre = pre.And(s.having[index])
+		}
+		if err = s.buildExpression(pre); err != nil {
+			return nil, err
+		}
+	}
+
+	if len(s.orderby) > 0 {
+		s.sb.WriteString(" ORDER BY ")
+		if err = s.buildSortBy(); err != nil {
+			return nil, err
+		}
+	}
+
+	if s.offset < 0 {
+		return nil, errs.ErrOffset
+	} else if s.limit > 0 {
+		s.sb.WriteString(" OFFSET ")
+		s.sb.WriteByte('?')
+		s.addArgs(s.offset)
+		s.sb.WriteByte(',')
+		s.sb.WriteString(" LIMIT ")
+		s.sb.WriteByte('?')
+		s.addArgs(s.limit)
+	}
+
 	s.sb.WriteByte(';')
 	return &Query{
 		SQL:  s.sb.String(),
@@ -82,6 +126,17 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	case RawExpr:
 		s.sb.WriteString(expr.raw)
 		s.addArgs(expr.args...)
+	case Aggregate:
+		s.sb.WriteString(expr.fn)
+		s.sb.WriteByte('(')
+		err := s.buildColumn(expr.arg)
+		if err != nil {
+			return err
+		}
+		s.sb.WriteByte(')')
+		s.sb.WriteString(expr.op)
+		s.sb.WriteByte('?')
+		s.addArgs(expr.val)
 	case Predicate:
 		_, lp := expr.left.(Predicate)
 		if lp {
@@ -159,6 +214,47 @@ func (s *Selector[T]) buildAs(alias string) {
 	}
 }
 
+// buildGroupBy 构建groupBy
+func (s *Selector[T]) buildGroupBy() error {
+	for index, c := range s.group {
+		if index > 0 {
+			s.sb.WriteByte(',')
+		}
+		switch expr := c.(type) {
+		case Column:
+			field, ok := s.model.FieldMap[expr.column]
+			if !ok {
+				return errs.NewErrUnknownField(expr.column)
+			}
+			s.sb.WriteByte('`')
+			s.sb.WriteString(field.ColName)
+			s.sb.WriteByte('`')
+		default:
+			return errs.NewErrUnsupportedExpressionType(c)
+		}
+	}
+	return nil
+}
+
+// buildSortBy 构建排序
+func (s *Selector[T]) buildSortBy() error {
+	for index, sby := range s.orderby {
+		if index > 0 {
+			s.sb.WriteByte(',')
+		}
+		if err := s.buildColumn(sby.column); err != nil {
+			return err
+		}
+		s.sb.WriteByte(' ')
+		if sby.sort == "" {
+			s.sb.WriteString("ASC")
+		} else {
+			s.sb.WriteString(string(sby.sort))
+		}
+	}
+	return nil
+}
+
 func (s *Selector[T]) addArgs(args ...any) {
 	if len(args) == 0 {
 		return
@@ -181,6 +277,31 @@ func (s *Selector[T]) Where(pre ...Predicate) *Selector[T] {
 
 func (s *Selector[T]) From(tableName string) *Selector[T] {
 	s.table = tableName
+	return s
+}
+
+func (s *Selector[T]) GroupBy(groups ...Expression) *Selector[T] {
+	s.group = groups
+	return s
+}
+
+func (s *Selector[T]) Having(havings ...Predicate) *Selector[T] {
+	s.having = havings
+	return s
+}
+
+func (s *Selector[T]) OrderBy(orderbys ...Column) *Selector[T] {
+	s.orderby = orderbys
+	return s
+}
+
+func (s *Selector[T]) Size(size int64) *Selector[T] {
+	s.limit = size
+	return s
+}
+
+func (s *Selector[T]) Page(page int64) *Selector[T] {
+	s.offset = (page - 1) * s.limit
 	return s
 }
 

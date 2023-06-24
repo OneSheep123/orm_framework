@@ -13,9 +13,9 @@ type Querier[T any] interface {
 	GetMulti(ctx context.Context) (*[]T, error)
 }
 
-// Executor 执行角色，返回执行结果
+// Executor 执行角色，返回执行结果(insert、update、delete)
 type Executor interface {
-	Exec(ctx context.Context) (sql.Result, error)
+	Exec(ctx context.Context) sql.Result
 }
 
 // QueryBuilder sql语句构建

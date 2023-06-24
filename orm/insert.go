@@ -2,11 +2,14 @@
 package orm
 
 import (
+	"context"
+	"database/sql"
 	"orm_framework/orm/internal/errs"
 	"orm_framework/orm/model"
-	"reflect"
 )
 
+// UpsertBuilder Inserter变为UpsertBuilder最后变为Inserter
+// 其中UpsertBuilder去构建冲突部分
 type UpsertBuilder[T any] struct {
 	i *Inserter[T]
 	// conflictColumns 这里只是作为临时变量存储，后续会赋值给Upsert内的conflictColumns
@@ -99,6 +102,7 @@ func (i *Inserter[T]) Build() (*Query, error) {
 	}
 	i.sb.WriteString(") VALUES")
 	for vIndex, val := range i.values {
+		c := i.db.Creator(val, i.model)
 		if vIndex > 0 {
 			i.sb.WriteByte(',')
 		}
@@ -108,7 +112,10 @@ func (i *Inserter[T]) Build() (*Query, error) {
 				i.sb.WriteByte(',')
 			}
 			i.sb.WriteByte('?')
-			v := reflect.ValueOf(val).Elem().FieldByName(field.GoName).Interface()
+			v, err := c.Field(field.GoName)
+			if err != nil {
+				return nil, err
+			}
 			i.addArgs(v)
 		}
 		i.sb.WriteByte(')')
@@ -126,4 +133,13 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		SQL:  i.sb.String(),
 		Args: i.args,
 	}, nil
+}
+
+func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
+	query, err := i.Build()
+	if err != nil {
+		return &Result{err: err}
+	}
+	result, err := i.db.db.ExecContext(ctx, query.SQL, query.Args...)
+	return &Result{err: err, res: result}
 }

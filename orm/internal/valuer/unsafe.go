@@ -23,6 +23,17 @@ func NewUnsafeValue(entity interface{}, meta *model.Model) Value {
 	}
 }
 
+func (u unsafeValue) Field(name string) (any, error) {
+	field, ok := u.meta.FieldMap[name]
+	if !ok {
+		return nil, errs.NewErrUnknownField(name)
+	}
+	ptr := unsafe.Pointer(uintptr(u.address) + field.Offset)
+	// 这里NewAt是创建了指定地址的类型变量，不会修改对应地址的值
+	val := reflect.NewAt(field.Type, ptr).Elem()
+	return val.Interface(), nil
+}
+
 func (u unsafeValue) SetColumns(rows *sql.Rows) error {
 	cs, err := rows.Columns()
 	if err != nil {

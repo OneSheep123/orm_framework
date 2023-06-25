@@ -130,6 +130,98 @@ func TestSelector_Build(t *testing.T) {
 				Args: []any{100},
 			},
 		},
+		{
+			name:    "offset only",
+			builder: NewSelector[TestModel](db).Offset(10),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` OFFSET ?;",
+				Args: []any{10},
+			},
+		},
+		{
+			name:    "limit only",
+			builder: NewSelector[TestModel](db).Limit(10),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` LIMIT ?;",
+				Args: []any{10},
+			},
+		},
+		{
+			name:    "limit offset",
+			builder: NewSelector[TestModel](db).Limit(20).Offset(10),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` LIMIT ? OFFSET ?;",
+				Args: []any{20, 10},
+			},
+		},
+		{
+			// 调用了，但是啥也没传
+			name:    "none",
+			builder: NewSelector[TestModel](db).GroupBy(C("Age")).Having(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `test_model` GROUP BY `age`;",
+			},
+		},
+		{
+			// 单个条件
+			name: "single",
+			builder: NewSelector[TestModel](db).GroupBy(C("Age")).
+				Having(C("FirstName").Eq("Deng")),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` GROUP BY `age` HAVING `first_name` = ?;",
+				Args: []any{"Deng"},
+			},
+		},
+		{
+			// 多个条件
+			name: "multiple",
+			builder: NewSelector[TestModel](db).GroupBy(C("Age")).
+				Having(C("FirstName").Eq("Deng"), C("LastName").Eq("Ming")),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` GROUP BY `age` HAVING (`first_name` = ?) AND (`last_name` = ?);",
+				Args: []any{"Deng", "Ming"},
+			},
+		},
+		{
+			// 聚合函数
+			name: "avg",
+			builder: NewSelector[TestModel](db).GroupBy(C("Age")).
+				Having(Avg("Age").Eq(18)),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` GROUP BY `age` HAVING AVG(`age`) = ?;",
+				Args: []any{18},
+			},
+		},
+		{
+			// 调用了，但是啥也没传
+			name:    "none group",
+			builder: NewSelector[TestModel](db).GroupBy(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `test_model`;",
+			},
+		},
+		{
+			// 单个
+			name:    "single",
+			builder: NewSelector[TestModel](db).GroupBy(C("Age")),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `test_model` GROUP BY `age`;",
+			},
+		},
+		{
+			// 多个
+			name:    "multiple",
+			builder: NewSelector[TestModel](db).GroupBy(C("Age"), C("FirstName")),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `test_model` GROUP BY `age`,`first_name`;",
+			},
+		},
+		{
+			// 不存在
+			name:    "invalid column",
+			builder: NewSelector[TestModel](db).GroupBy(C("Invalid")),
+			wantErr: errs.NewErrUnknownField("Invalid"),
+		},
 	}
 
 	for _, tc := range testCases {

@@ -10,6 +10,8 @@ type Aggregate struct {
 // selectable 实现这个接口可以在Select后进行插入
 func (a Aggregate) selectable() {}
 
+func (a Aggregate) expr() {}
+
 func Avg(c string) Aggregate {
 	return Aggregate{
 		fn:  "AVG",
@@ -50,5 +52,13 @@ func Sum(c string) Aggregate {
 	return Aggregate{
 		fn:  "SUM",
 		arg: c,
+	}
+}
+
+func (a Aggregate) Eq(val any) Predicate {
+	return Predicate{
+		left:  a,
+		op:    opEQ,
+		right: exprOf(val),
 	}
 }

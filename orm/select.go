@@ -14,8 +14,12 @@ type Selector[T any] struct {
 	db      *DB
 	table   string
 	where   []Predicate
+	having  []Predicate
 	columns []Selectable
 	builder
+	groupBy []Column
+	offset  int
+	limit   int
 }
 
 func NewSelector[T any](db *DB) *Selector[T] {
@@ -57,6 +61,37 @@ func (s *Selector[T]) Build() (*Query, error) {
 			return nil, err
 		}
 	}
+
+	if len(s.groupBy) > 0 {
+		s.sb.WriteString(" GROUP BY ")
+		for i, c := range s.groupBy {
+			if i > 0 {
+				s.sb.WriteByte(',')
+			}
+			if err = s.buildColumn(c.column); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if len(s.having) > 0 {
+		s.sb.WriteString(" HAVING ")
+		// HAVING 是可以用别名的
+		if err = s.buildPredicates(s.having); err != nil {
+			return nil, err
+		}
+	}
+
+	if s.limit > 0 {
+		s.sb.WriteString(" LIMIT ?")
+		s.addArgs(s.limit)
+	}
+
+	if s.offset > 0 {
+		s.sb.WriteString(" OFFSET ?")
+		s.addArgs(s.offset)
+	}
+
 	s.sb.WriteByte(';')
 	return &Query{
 		SQL:  s.sb.String(),
@@ -72,10 +107,9 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	}
 	switch expr := expression.(type) {
 	case Column:
-		err := s.buildColumn(expr.column)
-		if err != nil {
-			return err
-		}
+		return s.buildColumn(expr.column)
+	case Aggregate:
+		return s.buildAggregate(expr, false)
 	case Value:
 		s.sb.WriteByte('?')
 		s.addArgs(expr.val)
@@ -116,6 +150,27 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	return nil
 }
 
+func (s *Selector[T]) buildPredicates(ps []Predicate) error {
+	p := ps[0]
+	for i := 1; i < len(ps); i++ {
+		p = p.And(ps[i])
+	}
+	return s.buildExpression(p)
+}
+
+func (s *Selector[T]) buildAggregate(a Aggregate, useAlias bool) error {
+	s.sb.WriteString(a.fn)
+	s.sb.WriteByte('(')
+	if err := s.buildColumn(a.arg); err != nil {
+		return err
+	}
+	s.sb.WriteByte(')')
+	if useAlias {
+		s.buildAs(a.alias)
+	}
+	return nil
+}
+
 // buildColumns 构建select后面部分
 // 这里的case都有实现了selectable接口
 func (s *Selector[T]) buildColumns() error {
@@ -135,14 +190,7 @@ func (s *Selector[T]) buildColumns() error {
 			}
 			s.buildAs(val.alias)
 		case Aggregate:
-			s.sb.WriteString(val.fn)
-			s.sb.WriteString("(")
-			err := s.buildColumn(val.arg)
-			if err != nil {
-				return err
-			}
-			s.sb.WriteString(")")
-			s.buildAs(val.alias)
+			return s.buildAggregate(val, true)
 		case RawExpr:
 			s.sb.WriteString(val.raw)
 			s.addArgs(val.args...)
@@ -181,6 +229,27 @@ func (s *Selector[T]) Where(pre ...Predicate) *Selector[T] {
 
 func (s *Selector[T]) From(tableName string) *Selector[T] {
 	s.table = tableName
+	return s
+}
+
+// GroupBy 设置 group by 子句
+func (s *Selector[T]) GroupBy(cols ...Column) *Selector[T] {
+	s.groupBy = cols
+	return s
+}
+
+func (s *Selector[T]) Having(ps ...Predicate) *Selector[T] {
+	s.having = ps
+	return s
+}
+
+func (s *Selector[T]) Offset(offset int) *Selector[T] {
+	s.offset = offset
+	return s
+}
+
+func (s *Selector[T]) Limit(limit int) *Selector[T] {
+	s.limit = limit
 	return s
 }
 

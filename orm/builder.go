@@ -3,16 +3,15 @@ package orm
 
 import (
 	"orm_framework/orm/internal/errs"
-	"orm_framework/orm/model"
 	"strings"
 )
 
 type builder struct {
-	sb      strings.Builder
-	model   *model.Model
-	dialect Dialect
-	args    []any
-	quoter  byte
+	core
+
+	sb     strings.Builder
+	args   []any
+	quoter byte
 }
 
 func (b *builder) buildColumn(goColumn string) error {

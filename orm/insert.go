@@ -37,20 +37,22 @@ func (o *UpsertBuilder[T]) Update(assigns ...Assignable) *Inserter[T] {
 
 type Inserter[T any] struct {
 	values []*T
-	db     *DB
 	builder
 	columns []string
 	// 使用一个 OnDuplicate 结构体，从而允许将来扩展更加复杂的行为
 	onDuplicate *Upsert
+
+	sess Session
 }
 
-func NewInserter[T any](db *DB) *Inserter[T] {
+func NewInserter[T any](sess Session) *Inserter[T] {
+	c := sess.getCore()
 	return &Inserter[T]{
 		builder: builder{
-			dialect: db.dialect,
-			quoter:  db.dialect.quoter(),
+			core:   c,
+			quoter: c.dialect.quoter(),
 		},
-		db: db,
+		sess: sess,
 	}
 }
 
@@ -75,7 +77,7 @@ func (i *Inserter[T]) Build() (*Query, error) {
 	if len(i.values) == 0 {
 		return nil, errs.ErrInsertZeroRow
 	}
-	m, err := i.db.r.Get(i.values[0])
+	m, err := i.r.Get(i.values[0])
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +104,7 @@ func (i *Inserter[T]) Build() (*Query, error) {
 	}
 	i.sb.WriteString(") VALUES")
 	for vIndex, val := range i.values {
-		c := i.db.Creator(val, i.model)
+		c := i.Creator(val, i.model)
 		if vIndex > 0 {
 			i.sb.WriteByte(',')
 		}
@@ -140,6 +142,6 @@ func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
 	if err != nil {
 		return &Result{err: err}
 	}
-	result, err := i.db.db.ExecContext(ctx, query.SQL, query.Args...)
+	result, err := i.sess.execContext(ctx, query.SQL, query.Args...)
 	return &Result{err: err, res: result}
 }

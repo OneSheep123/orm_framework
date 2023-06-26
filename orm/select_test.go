@@ -236,6 +236,44 @@ func TestSelector_Build(t *testing.T) {
 	}
 }
 
+func TestSelector_Transaction(t *testing.T) {
+	d := mysqlDB()
+	db, _ := OpenDB(d)
+	testCases := []struct {
+		name    string
+		builder QueryBuilder
+
+		wantQuery *Query
+		wantErr   error
+	}{
+		{
+			name: "one",
+			builder: func() QueryBuilder {
+				tx, _ := db.BeginTx(context.Background(), &sql.TxOptions{
+					Isolation: sql.LevelRepeatableRead,
+				})
+				return NewSelector[TestModel](tx)
+			}(),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model`;",
+				Args: nil,
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			query, err := tc.builder.Build()
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantQuery, query)
+		})
+	}
+}
+
 func TestSelector_Get(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)

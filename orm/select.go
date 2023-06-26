@@ -11,29 +11,31 @@ type Selectable interface {
 
 // Selector 用于构建Select语句
 type Selector[T any] struct {
-	db      *DB
+	builder
 	table   string
 	where   []Predicate
 	having  []Predicate
 	columns []Selectable
-	builder
 	groupBy []Column
 	offset  int
 	limit   int
+
+	sess Session
 }
 
-func NewSelector[T any](db *DB) *Selector[T] {
+func NewSelector[T any](sess Session) *Selector[T] {
+	c := sess.getCore()
 	return &Selector[T]{
 		builder: builder{
-			dialect: db.dialect,
-			quoter:  db.dialect.quoter(),
+			core:   c,
+			quoter: c.dialect.quoter(),
 		},
-		db: db,
+		sess: sess,
 	}
 }
 
 func (s *Selector[T]) Build() (*Query, error) {
-	m, err := s.db.r.Get(new(T))
+	m, err := s.r.Get(new(T))
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +260,7 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.db.db.QueryContext(ctx, sql.SQL, sql.Args...)
+	rows, err := s.sess.queryContext(ctx, sql.SQL, sql.Args...)
 	// 注意这里查询完后要进行关闭，否则连接会无法释放
 	if rows != nil {
 		defer rows.Close()
@@ -272,11 +274,11 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 	}
 
 	tp := new(T)
-	meta, err := s.db.r.Get(tp)
+	meta, err := s.r.Get(tp)
 	if err != nil {
 		return nil, err
 	}
-	val := s.db.Creator(tp, meta)
+	val := s.Creator(tp, meta)
 	err = val.SetColumns(rows)
 	return tp, err
 }

@@ -4,6 +4,7 @@ package orm
 import (
 	"context"
 	"database/sql"
+	"orm_framework/orm/internal/errs"
 	"orm_framework/orm/internal/valuer"
 	"orm_framework/orm/model"
 )
@@ -98,4 +99,28 @@ func (db *DB) execContext(context context.Context, query string, args ...any) (s
 
 func (db *DB) getCore() core {
 	return db.core
+}
+
+// DoTx 闭包事务
+func (db *DB) DoTx(context context.Context,
+	fn func(ctx context.Context, tx *Tx) error, sqlOptions *sql.TxOptions) (err error) {
+	var tx *Tx
+	tx, err = db.BeginTx(context, sqlOptions)
+	if err != nil {
+		return err
+	}
+	panicked := true
+
+	defer func() {
+		if !panicked || err != nil {
+			e := tx.Rollback()
+			err = errs.NewErrFailedToRollbackTx(err, e, panicked)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	err = fn(context, tx)
+	panicked = false
+	return err
 }

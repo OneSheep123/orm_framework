@@ -43,6 +43,11 @@ func NewErrUnsupportedAssignableType(exp any) error {
 	return fmt.Errorf("orm: 不支持的 Assignable 表达式 %v", exp)
 }
 
+func NewErrFailedToRollbackTx(bizErr error, rbErr error, panicked bool) error {
+	return fmt.Errorf("orm: 事务闭包回滚失败，业务错误: %w，回滚错误 %s，"+
+		"是否 panic: %t", bizErr, rbErr, panicked)
+}
+
 // 后面可以考虑支持错误码
 // func NewErrUnsupportedExpressionType(exp any) error {
 // 	return fmt.Errorf("orm-50001: 不支持的表达式 %v", exp)

@@ -249,9 +249,7 @@ func TestSelector_Transaction(t *testing.T) {
 		{
 			name: "one",
 			builder: func() QueryBuilder {
-				tx, _ := db.BeginTx(context.Background(), &sql.TxOptions{
-					Isolation: sql.LevelRepeatableRead,
-				})
+				tx, _ := db.BeginTx(context.Background(), &sql.TxOptions{})
 				return NewSelector[TestModel](tx)
 			}(),
 			wantQuery: &Query{

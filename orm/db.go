@@ -73,6 +73,12 @@ func WithReflectValue() DBOptions {
 	}
 }
 
+func WithMiddleWare(mdls ...Middleware) DBOptions {
+	return func(db *DB) {
+		db.mdls = mdls
+	}
+}
+
 func MustNewDB(driver string, dsn string, opts ...DBOptions) *DB {
 	db, err := Open(driver, dsn, opts...)
 	if err != nil {

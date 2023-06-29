@@ -38,7 +38,7 @@ func TestInserter_Build(t *testing.T) {
 					LastName:  &sql.NullString{String: "Ming", Valid: true},
 				}),
 			wantQuery: &Query{
-				SQL:  "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?);",
+				SQL:  "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES (?,?,?,?);",
 				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true}},
 			},
 		},
@@ -58,7 +58,7 @@ func TestInserter_Build(t *testing.T) {
 					LastName:  &sql.NullString{String: "Ming", Valid: true},
 				}),
 			wantQuery: &Query{
-				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?),(?,?,?,?);",
+				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES (?,?,?,?),(?,?,?,?);",
 				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true},
 					2, "Da", int8(19), &sql.NullString{String: "Ming", Valid: true}},
 			},
@@ -86,7 +86,7 @@ func TestInserter_Build(t *testing.T) {
 					LastName:  &sql.NullString{String: "Ming", Valid: true},
 				}).Columns("FirstName", "Age"),
 			wantQuery: &Query{
-				SQL:  "INSERT INTO `test_model`(`first_name`,`age`) VALUES(?,?);",
+				SQL:  "INSERT INTO `test_model`(`first_name`,`age`) VALUES (?,?);",
 				Args: []any{"Deng", int8(18)},
 			},
 		},
@@ -111,7 +111,7 @@ func TestInserter_Build(t *testing.T) {
 			}).OnDuplicateKey().Update(Assign("FirstName", "zhangsan"),
 				Assign("LastName", 19)),
 			wantQuery: &Query{
-				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?) " +
+				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES (?,?,?,?) " +
 					"ON DUPLICATE KEY UPDATE `first_name`=?,`last_name`=?;",
 				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true}, "zhangsan", 19},
 			},
@@ -125,7 +125,7 @@ func TestInserter_Build(t *testing.T) {
 				LastName:  &sql.NullString{String: "Ming", Valid: true},
 			}).OnDuplicateKey().Update(C("FirstName")),
 			wantQuery: &Query{
-				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?) " +
+				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES (?,?,?,?) " +
 					"ON DUPLICATE KEY UPDATE `first_name`=VALUES(`first_name`);",
 				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true}},
 			},
@@ -166,7 +166,7 @@ func TestUpsert_SQLite3_Upsert(t *testing.T) {
 				}).OnDuplicateKey().ConflictColumns("Id").
 				Update(Assign("FirstName", "Da")),
 			wantQuery: &Query{
-				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?) " +
+				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES (?,?,?,?) " +
 					"ON CONFLICT(`id`) DO UPDATE SET `first_name`=?;",
 				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true}, "Da"},
 			},
@@ -215,7 +215,7 @@ func TestUpsert_SQLite3_Upsert(t *testing.T) {
 				}).OnDuplicateKey().ConflictColumns("Id").
 				Update(C("FirstName"), C("LastName")),
 			wantQuery: &Query{
-				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?),(?,?,?,?) " +
+				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES (?,?,?,?),(?,?,?,?) " +
 					"ON CONFLICT(`id`) DO UPDATE SET `first_name`=excluded.`first_name`,`last_name`=excluded.`last_name`;",
 				Args: []any{1, "Deng", int8(18), &sql.NullString{String: "Ming", Valid: true},
 					2, "Da", int8(19), &sql.NullString{String: "Ming", Valid: true}},

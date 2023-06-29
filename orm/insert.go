@@ -102,7 +102,7 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		}
 		i.quote(field.ColName)
 	}
-	i.sb.WriteString(") VALUES")
+	i.sb.WriteString(") VALUES ")
 	for vIndex, val := range i.values {
 		c := i.Creator(val, i.model)
 		if vIndex > 0 {
@@ -138,10 +138,39 @@ func (i *Inserter[T]) Build() (*Query, error) {
 }
 
 func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
-	query, err := i.Build()
-	if err != nil {
-		return &Result{err: err}
+
+	qc := &QueryContext{
+		Type:    "INSERT",
+		Builder: i,
 	}
-	result, err := i.sess.execContext(ctx, query.SQL, query.Args...)
-	return &Result{err: err, res: result}
+	var root Handler = func(ctx context.Context, qc *QueryContext) *QueryResult {
+		return exec(ctx, i.sess, qc)
+	}
+	for index := len(i.mdls) - 1; index >= 0; index-- {
+		root = i.mdls[index](root)
+	}
+	result := root(ctx, qc)
+	if result.Result != nil {
+		return &Result{
+			res: result.Result.(sql.Result),
+			err: nil,
+		}
+	}
+	return &Result{
+		err: result.Err,
+	}
+}
+
+func exec(ctx context.Context, sess Session, qc *QueryContext) *QueryResult {
+	query, err := qc.Builder.Build()
+	if err != nil {
+		return &QueryResult{
+			Err: err,
+		}
+	}
+	result, err := sess.execContext(ctx, query.SQL, query.Args...)
+	return &QueryResult{
+		Result: result,
+		Err:    err,
+	}
 }

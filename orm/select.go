@@ -260,60 +260,11 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 		Type:    "SELECT",
 		Builder: s,
 	}
-	var root Handler = func(ctx context.Context, qc *QueryContext) *QueryResult {
-		return getHandler[T](ctx, s.sess, s.core, qc)
-	}
-	for index := len(s.mdls) - 1; index >= 0; index-- {
-		root = s.mdls[index](root)
-	}
-	res := root(ctx, qc)
+	res := get[T](ctx, s.sess, s.core, qc)
 	if res.Result != nil {
 		return res.Result.(*T), nil
 	}
 	return nil, res.Err
-}
-
-func getHandler[T any](ctx context.Context, sess Session, c core, qc *QueryContext) *QueryResult {
-	sql, err := qc.Builder.Build()
-	if err != nil {
-		return &QueryResult{
-			Result: nil,
-			Err:    err,
-		}
-	}
-	rows, err := sess.queryContext(ctx, sql.SQL, sql.Args...)
-	// 注意这里查询完后要进行关闭，否则连接会无法释放
-	if rows != nil {
-		defer rows.Close()
-	}
-	if err != nil {
-		return &QueryResult{
-			Result: nil,
-			Err:    err,
-		}
-	}
-	if !rows.Next() {
-		// 这里调用的是error下的ErrNoRows
-		return &QueryResult{
-			Result: nil,
-			Err:    ErrNoRows,
-		}
-	}
-
-	tp := new(T)
-	meta, err := c.r.Get(tp)
-	if err != nil {
-		return &QueryResult{
-			Result: nil,
-			Err:    ErrNoRows,
-		}
-	}
-	val := c.Creator(tp, meta)
-	err = val.SetColumns(rows)
-	return &QueryResult{
-		Result: tp,
-		Err:    err,
-	}
 }
 
 func (s *Selector[T]) GetMulti(ctx context.Context) (*[]T, error) {

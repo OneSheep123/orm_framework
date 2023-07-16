@@ -138,18 +138,11 @@ func (i *Inserter[T]) Build() (*Query, error) {
 }
 
 func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
-
 	qc := &QueryContext{
 		Type:    "INSERT",
 		Builder: i,
 	}
-	var root Handler = func(ctx context.Context, qc *QueryContext) *QueryResult {
-		return exec(ctx, i.sess, qc)
-	}
-	for index := len(i.mdls) - 1; index >= 0; index-- {
-		root = i.mdls[index](root)
-	}
-	result := root(ctx, qc)
+	result := exec(ctx, i.sess, i.core, qc)
 	if result.Result != nil {
 		return &Result{
 			res: result.Result.(sql.Result),
@@ -158,19 +151,5 @@ func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
 	}
 	return &Result{
 		err: result.Err,
-	}
-}
-
-func exec(ctx context.Context, sess Session, qc *QueryContext) *QueryResult {
-	query, err := qc.Builder.Build()
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	result, err := sess.execContext(ctx, query.SQL, query.Args...)
-	return &QueryResult{
-		Result: result,
-		Err:    err,
 	}
 }

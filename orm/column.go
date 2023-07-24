@@ -4,6 +4,7 @@ package orm
 type Column struct {
 	column string
 	alias  string
+	table  TableReference
 }
 
 func (Column) expr() {}
@@ -54,6 +55,7 @@ func (c Column) As(alias string) Column {
 	return Column{
 		column: c.column,
 		alias:  alias,
+		table:  c.table,
 	}
 }
 

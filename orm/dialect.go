@@ -43,19 +43,19 @@ func (s *mysqlDialect) buildOnUpsert(b *builder, odk *Upsert) error {
 		}
 		switch assign := a.(type) {
 		case Assignment:
-			err = b.buildColumn(assign.column)
+			err = b.buildColumn(&Column{column: assign.column})
 			if err != nil {
 				return err
 			}
 			b.sb.WriteString(`=?`)
 			b.addArgs(assign.val)
 		case Column:
-			err = b.buildColumn(assign.column)
+			err = b.buildColumn(&Column{column: assign.column})
 			if err != nil {
 				return err
 			}
 			b.sb.WriteString("=VALUES(")
-			b.buildColumn(assign.column)
+			b.buildColumn(&Column{column: assign.column})
 			b.sb.WriteString(")")
 		}
 	}
@@ -78,7 +78,7 @@ func (s *sqlite3Dialect) buildOnUpsert(b *builder, odk *Upsert) error {
 			if i > 0 {
 				b.sb.WriteByte(',')
 			}
-			err := b.buildColumn(col)
+			err := b.buildColumn(&Column{column: col})
 			if err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ func (s *sqlite3Dialect) buildOnUpsert(b *builder, odk *Upsert) error {
 			b.sb.WriteString("=excluded.")
 			b.quote(fd.ColName)
 		case Assignment:
-			err := b.buildColumn(assign.column)
+			err := b.buildColumn(&Column{column: assign.column})
 			if err != nil {
 				return err
 			}

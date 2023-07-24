@@ -3,6 +3,7 @@ package orm
 
 import (
 	"context"
+	"orm_framework/orm/internal/errs"
 )
 
 type Selectable interface {
@@ -12,7 +13,7 @@ type Selectable interface {
 // Selector 用于构建Select语句
 type Selector[T any] struct {
 	builder
-	table   string
+	table   TableReference
 	where   []Predicate
 	having  []Predicate
 	columns []Selectable
@@ -46,10 +47,9 @@ func (s *Selector[T]) Build() (*Query, error) {
 		return nil, err
 	}
 	s.sb.WriteString(" FROM ")
-	if s.table == "" {
-		s.quote(s.model.TableName)
-	} else {
-		s.sb.WriteString(s.table)
+
+	if err = s.buildTable(s.table); err != nil {
+		return nil, err
 	}
 
 	if len(s.where) > 0 {
@@ -70,7 +70,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 			if i > 0 {
 				s.sb.WriteByte(',')
 			}
-			if err = s.buildColumn(c.column); err != nil {
+			if err = s.buildColumn(&Column{column: c.column}); err != nil {
 				return nil, err
 			}
 		}
@@ -101,6 +101,66 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}, nil
 }
 
+func (s *Selector[T]) buildTable(table TableReference) error {
+	switch t := table.(type) {
+	case nil:
+		s.quote(s.model.TableName)
+	case Table:
+		model, err := s.r.Get(t.entity)
+		if err != nil {
+			return err
+		}
+		s.quote(model.TableName)
+		if t.alias != "" {
+			s.sb.WriteString(" AS ")
+			s.quote(t.alias)
+		}
+	case Join:
+		s.sb.WriteByte('(')
+
+		err := s.buildTable(t.left)
+		if err != nil {
+			return err
+		}
+
+		s.sb.WriteByte(' ')
+		s.sb.WriteString(t.typ)
+		s.sb.WriteByte(' ')
+
+		err = s.buildTable(t.right)
+		if err != nil {
+			return err
+		}
+
+		if len(t.using) > 0 {
+			s.sb.WriteString(" USING (")
+			for i, col := range t.using {
+				if i > 0 {
+					s.sb.WriteByte(',')
+				}
+				err = s.buildColumn(&Column{column: col})
+				if err != nil {
+					return err
+				}
+			}
+			s.sb.WriteByte(')')
+		} else if len(t.on) > 0 {
+			s.sb.WriteString(" ON ")
+			p := t.on[0]
+			for i := 1; i < len(t.on); i++ {
+				p = p.And(t.on[i])
+			}
+			if err = s.buildExpression(p); err != nil {
+				return err
+			}
+		}
+		s.sb.WriteByte(')')
+	default:
+		return errs.NewErrUnsupportedTable(table)
+	}
+	return nil
+}
+
 // buildExpression 构建Where后面部分
 // 这里case都实现了expr方法
 func (s *Selector[T]) buildExpression(expression Expression) error {
@@ -109,7 +169,7 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	}
 	switch expr := expression.(type) {
 	case Column:
-		return s.buildColumn(expr.column)
+		return s.buildColumn(&expr)
 	case Aggregate:
 		return s.buildAggregate(expr, false)
 	case Value:
@@ -163,7 +223,7 @@ func (s *Selector[T]) buildPredicates(ps []Predicate) error {
 func (s *Selector[T]) buildAggregate(a Aggregate, useAlias bool) error {
 	s.sb.WriteString(a.fn)
 	s.sb.WriteByte('(')
-	if err := s.buildColumn(a.arg); err != nil {
+	if err := s.buildColumn(&Column{column: a.arg}); err != nil {
 		return err
 	}
 	s.sb.WriteByte(')')
@@ -186,7 +246,7 @@ func (s *Selector[T]) buildColumns() error {
 		}
 		switch val := c.(type) {
 		case Column:
-			err := s.buildColumn(val.column)
+			err := s.buildColumn(&Column{column: val.column})
 			if err != nil {
 				return err
 			}
@@ -229,8 +289,8 @@ func (s *Selector[T]) Where(pre ...Predicate) *Selector[T] {
 	return s
 }
 
-func (s *Selector[T]) From(tableName string) *Selector[T] {
-	s.table = tableName
+func (s *Selector[T]) From(table TableReference) *Selector[T] {
+	s.table = table
 	return s
 }
 

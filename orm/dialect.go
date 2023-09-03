@@ -35,11 +35,11 @@ func (s *mysqlDialect) quoter() byte {
 }
 
 func (s *mysqlDialect) buildOnUpsert(b *builder, odk *Upsert) error {
-	b.sb.WriteString(" ON DUPLICATE KEY UPDATE ")
+	b.writeString(" ON DUPLICATE KEY UPDATE ")
 	var err error
 	for index, a := range odk.assigns {
 		if index > 0 {
-			b.sb.WriteByte(',')
+			b.writeByte(',')
 		}
 		switch assign := a.(type) {
 		case Assignment:
@@ -47,16 +47,16 @@ func (s *mysqlDialect) buildOnUpsert(b *builder, odk *Upsert) error {
 			if err != nil {
 				return err
 			}
-			b.sb.WriteString(`=?`)
+			b.writeString(`=?`)
 			b.addArgs(assign.val)
 		case Column:
 			err = b.buildColumn(&Column{column: assign.column})
 			if err != nil {
 				return err
 			}
-			b.sb.WriteString("=VALUES(")
+			b.writeString("=VALUES(")
 			b.buildColumn(&Column{column: assign.column})
-			b.sb.WriteString(")")
+			b.writeString(")")
 		}
 	}
 	return nil
@@ -71,25 +71,25 @@ func (s *sqlite3Dialect) quoter() byte {
 }
 
 func (s *sqlite3Dialect) buildOnUpsert(b *builder, odk *Upsert) error {
-	b.sb.WriteString(" ON CONFLICT")
+	b.writeString(" ON CONFLICT")
 	if len(odk.conflictColumns) > 0 {
-		b.sb.WriteByte('(')
+		b.writeByte('(')
 		for i, col := range odk.conflictColumns {
 			if i > 0 {
-				b.sb.WriteByte(',')
+				b.writeByte(',')
 			}
 			err := b.buildColumn(&Column{column: col})
 			if err != nil {
 				return err
 			}
 		}
-		b.sb.WriteByte(')')
+		b.writeByte(')')
 	}
-	b.sb.WriteString(" DO UPDATE SET ")
+	b.writeString(" DO UPDATE SET ")
 
 	for idx, a := range odk.assigns {
 		if idx > 0 {
-			b.sb.WriteByte(',')
+			b.writeByte(',')
 		}
 		switch assign := a.(type) {
 		case Column:
@@ -98,14 +98,14 @@ func (s *sqlite3Dialect) buildOnUpsert(b *builder, odk *Upsert) error {
 				return errs.NewErrUnknownField(assign.column)
 			}
 			b.quote(fd.ColName)
-			b.sb.WriteString("=excluded.")
+			b.writeString("=excluded.")
 			b.quote(fd.ColName)
 		case Assignment:
 			err := b.buildColumn(&Column{column: assign.column})
 			if err != nil {
 				return err
 			}
-			b.sb.WriteString("=?")
+			b.writeString("=?")
 			b.addArgs(assign.val)
 		default:
 			return errs.NewErrUnsupportedAssignableType(a)

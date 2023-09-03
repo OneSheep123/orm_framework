@@ -3,6 +3,7 @@ package orm
 
 import (
 	"context"
+	"github.com/valyala/bytebufferpool"
 	"orm_framework/orm/internal/errs"
 )
 
@@ -27,23 +28,26 @@ func NewSelector[T any](sess Session) *Selector[T] {
 			builder: builder{
 				core:   c,
 				quoter: c.dialect.quoter(),
+				buffer: bytebufferpool.Get(),
 			},
 		},
 	}
 }
 
 func (s *Selector[T]) Build() (*Query, error) {
+	// 使用完毕之后放回
+	defer bytebufferpool.Put(s.buffer)
 	m, err := s.r.Get(new(T))
 	if err != nil {
 		return nil, err
 	}
 	s.model = m
-	s.sb.WriteString("SELECT ")
+	s.writeString("SELECT ")
 	err = s.buildColumns()
 	if err != nil {
 		return nil, err
 	}
-	s.sb.WriteString(" FROM ")
+	s.writeString(" FROM ")
 
 	if err = s.buildTable(s.table); err != nil {
 		return nil, err
@@ -51,7 +55,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 
 	if len(s.where) > 0 {
 		// 类似这种可有可无的部分，都要在前面加一个空格
-		s.sb.WriteString(" WHERE ")
+		s.writeString(" WHERE ")
 		pre := s.where[0]
 		for index := 1; index < len(s.where); index++ {
 			pre = pre.And(s.where[index])
@@ -62,10 +66,10 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}
 
 	if len(s.groupBy) > 0 {
-		s.sb.WriteString(" GROUP BY ")
+		s.writeString(" GROUP BY ")
 		for i, c := range s.groupBy {
 			if i > 0 {
-				s.sb.WriteByte(',')
+				s.writeByte(',')
 			}
 			if err = s.buildColumn(&Column{column: c.column}); err != nil {
 				return nil, err
@@ -74,7 +78,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}
 
 	if len(s.having) > 0 {
-		s.sb.WriteString(" HAVING ")
+		s.writeString(" HAVING ")
 		// HAVING 是可以用别名的
 		if err = s.buildPredicates(s.having); err != nil {
 			return nil, err
@@ -82,18 +86,18 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}
 
 	if s.limit > 0 {
-		s.sb.WriteString(" LIMIT ?")
+		s.writeString(" LIMIT ?")
 		s.addArgs(s.limit)
 	}
 
 	if s.offset > 0 {
-		s.sb.WriteString(" OFFSET ?")
+		s.writeString(" OFFSET ?")
 		s.addArgs(s.offset)
 	}
 
-	s.sb.WriteByte(';')
+	s.writeByte(';')
 	return &Query{
-		SQL:  s.sb.String(),
+		SQL:  s.buffer.String(),
 		Args: s.args,
 	}, nil
 }
@@ -109,20 +113,20 @@ func (s *Selector[T]) buildTable(table TableReference) error {
 		}
 		s.quote(model.TableName)
 		if t.alias != "" {
-			s.sb.WriteString(" AS ")
+			s.writeString(" AS ")
 			s.quote(t.alias)
 		}
 	case Join:
-		s.sb.WriteByte('(')
+		s.writeByte('(')
 
 		err := s.buildTable(t.left)
 		if err != nil {
 			return err
 		}
 
-		s.sb.WriteByte(' ')
-		s.sb.WriteString(t.typ)
-		s.sb.WriteByte(' ')
+		s.writeByte(' ')
+		s.writeString(t.typ)
+		s.writeByte(' ')
 
 		err = s.buildTable(t.right)
 		if err != nil {
@@ -130,19 +134,19 @@ func (s *Selector[T]) buildTable(table TableReference) error {
 		}
 
 		if len(t.using) > 0 {
-			s.sb.WriteString(" USING (")
+			s.writeString(" USING (")
 			for i, col := range t.using {
 				if i > 0 {
-					s.sb.WriteByte(',')
+					s.writeByte(',')
 				}
 				err = s.buildColumn(&Column{column: col})
 				if err != nil {
 					return err
 				}
 			}
-			s.sb.WriteByte(')')
+			s.writeByte(')')
 		} else if len(t.on) > 0 {
-			s.sb.WriteString(" ON ")
+			s.writeString(" ON ")
 			p := t.on[0]
 			for i := 1; i < len(t.on); i++ {
 				p = p.And(t.on[i])
@@ -151,7 +155,7 @@ func (s *Selector[T]) buildTable(table TableReference) error {
 				return err
 			}
 		}
-		s.sb.WriteByte(')')
+		s.writeByte(')')
 	default:
 		return errs.NewErrUnsupportedTable(table)
 	}
@@ -170,21 +174,21 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 	case Aggregate:
 		return s.buildAggregate(expr, false)
 	case Value:
-		s.sb.WriteByte('?')
+		s.writeByte('?')
 		s.addArgs(expr.val)
 	case RawExpr:
-		s.sb.WriteString(expr.raw)
+		s.writeString(expr.raw)
 		s.addArgs(expr.args...)
 	case Predicate:
 		_, lp := expr.left.(Predicate)
 		if lp {
-			s.sb.WriteByte('(')
+			s.writeByte('(')
 		}
 		if err := s.buildExpression(expr.left); err != nil {
 			return err
 		}
 		if lp {
-			s.sb.WriteByte(')')
+			s.writeByte(')')
 		}
 
 		// 可能只有左边
@@ -192,18 +196,18 @@ func (s *Selector[T]) buildExpression(expression Expression) error {
 			return nil
 		}
 
-		s.sb.WriteByte(' ')
-		s.sb.WriteString(string(expr.op))
-		s.sb.WriteByte(' ')
+		s.writeByte(' ')
+		s.writeString(string(expr.op))
+		s.writeByte(' ')
 		_, lp = expr.right.(Predicate)
 		if lp {
-			s.sb.WriteByte('(')
+			s.writeByte('(')
 		}
 		if err := s.buildExpression(expr.right); err != nil {
 			return err
 		}
 		if lp {
-			s.sb.WriteByte(')')
+			s.writeByte(')')
 		}
 	}
 	return nil
@@ -218,12 +222,12 @@ func (s *Selector[T]) buildPredicates(ps []Predicate) error {
 }
 
 func (s *Selector[T]) buildAggregate(a Aggregate, useAlias bool) error {
-	s.sb.WriteString(a.fn)
-	s.sb.WriteByte('(')
+	s.writeString(a.fn)
+	s.writeByte('(')
 	if err := s.buildColumn(&Column{column: a.arg}); err != nil {
 		return err
 	}
-	s.sb.WriteByte(')')
+	s.writeByte(')')
 	if useAlias {
 		s.buildAs(a.alias)
 	}
@@ -234,12 +238,12 @@ func (s *Selector[T]) buildAggregate(a Aggregate, useAlias bool) error {
 // 这里的case都有实现了selectable接口
 func (s *Selector[T]) buildColumns() error {
 	if len(s.columns) == 0 {
-		s.sb.WriteByte('*')
+		s.writeByte('*')
 		return nil
 	}
 	for i, c := range s.columns {
 		if i > 0 {
-			s.sb.WriteByte(',')
+			s.writeByte(',')
 		}
 		switch val := c.(type) {
 		case Column:
@@ -251,7 +255,7 @@ func (s *Selector[T]) buildColumns() error {
 		case Aggregate:
 			return s.buildAggregate(val, true)
 		case RawExpr:
-			s.sb.WriteString(val.raw)
+			s.writeString(val.raw)
 			s.addArgs(val.args...)
 		}
 	}
@@ -261,7 +265,7 @@ func (s *Selector[T]) buildColumns() error {
 // buildAs 构建as
 func (s *Selector[T]) buildAs(alias string) {
 	if alias != "" {
-		s.sb.WriteString(" AS ")
+		s.writeString(" AS ")
 		s.quote(alias)
 	}
 }

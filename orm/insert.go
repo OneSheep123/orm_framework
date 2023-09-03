@@ -4,6 +4,7 @@ package orm
 import (
 	"context"
 	"database/sql"
+	"github.com/valyala/bytebufferpool"
 	"orm_framework/orm/internal/errs"
 	"orm_framework/orm/model"
 )
@@ -51,6 +52,7 @@ func NewInserter[T any](sess Session) *Inserter[T] {
 		builder: builder{
 			core:   c,
 			quoter: c.dialect.quoter(),
+			buffer: bytebufferpool.Get(),
 		},
 		sess: sess,
 	}
@@ -74,6 +76,7 @@ func (i *Inserter[T]) OnDuplicateKey() *UpsertBuilder[T] {
 }
 
 func (i *Inserter[T]) Build() (*Query, error) {
+	defer bytebufferpool.Put(i.buffer)
 	if len(i.values) == 0 {
 		return nil, errs.ErrInsertZeroRow
 	}
@@ -82,9 +85,9 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		return nil, err
 	}
 	i.model = m
-	i.sb.WriteString("INSERT INTO ")
+	i.writeString("INSERT INTO ")
 	i.quote(m.TableName)
-	i.sb.WriteString("(")
+	i.writeString("(")
 	fields := m.Fields
 	if len(i.columns) != 0 {
 		fields = make([]*model.Field, 0, len(i.columns))
@@ -98,29 +101,29 @@ func (i *Inserter[T]) Build() (*Query, error) {
 	}
 	for index, field := range fields {
 		if index > 0 {
-			i.sb.WriteByte(',')
+			i.writeByte(',')
 		}
 		i.quote(field.ColName)
 	}
-	i.sb.WriteString(") VALUES ")
+	i.writeString(") VALUES ")
 	for vIndex, val := range i.values {
 		c := i.Creator(val, i.model)
 		if vIndex > 0 {
-			i.sb.WriteByte(',')
+			i.writeByte(',')
 		}
-		i.sb.WriteByte('(')
+		i.writeByte('(')
 		for fIndex, field := range fields {
 			if fIndex > 0 {
-				i.sb.WriteByte(',')
+				i.writeByte(',')
 			}
-			i.sb.WriteByte('?')
+			i.writeByte('?')
 			v, err := c.Field(field.GoName)
 			if err != nil {
 				return nil, err
 			}
 			i.addArgs(v)
 		}
-		i.sb.WriteByte(')')
+		i.writeByte(')')
 	}
 
 	if i.onDuplicate != nil {
@@ -130,9 +133,9 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		}
 	}
 
-	i.sb.WriteByte(';')
+	i.writeByte(';')
 	return &Query{
-		SQL:  i.sb.String(),
+		SQL:  i.buffer.String(),
 		Args: i.args,
 	}, nil
 }

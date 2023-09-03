@@ -2,16 +2,24 @@
 package orm
 
 import (
+	"github.com/valyala/bytebufferpool"
 	"orm_framework/orm/internal/errs"
-	"strings"
 )
 
 type builder struct {
 	core
 
-	sb     strings.Builder
+	buffer *bytebufferpool.ByteBuffer
 	args   []any
 	quoter byte
+}
+
+func (b *builder) writeString(str string) {
+	_, _ = b.buffer.WriteString(str)
+}
+
+func (b *builder) writeByte(c byte) {
+	_ = b.buffer.WriteByte(c)
 }
 
 func (b *builder) buildColumn(c *Column) error {
@@ -33,7 +41,7 @@ func (b *builder) buildColumn(c *Column) error {
 		}
 		if table.alias != "" {
 			b.quote(table.alias)
-			b.sb.WriteByte('.')
+			b.writeByte('.')
 		}
 		b.quote(field.ColName)
 	default:
@@ -44,9 +52,9 @@ func (b *builder) buildColumn(c *Column) error {
 }
 
 func (b *builder) quote(column string) {
-	b.sb.WriteByte(b.quoter)
-	b.sb.WriteString(column)
-	b.sb.WriteByte(b.quoter)
+	b.writeByte(b.quoter)
+	b.writeString(column)
+	b.writeByte(b.quoter)
 }
 
 func (b *builder) addArgs(args ...any) {

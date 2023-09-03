@@ -8,7 +8,9 @@ import (
 )
 
 type core struct {
+	// 用于返回结果集处理
 	valuer.Creator
+	// dialect 方言
 	dialect Dialect
 	// r 使用隔离的DB维护一个注册中心
 	r     model.Registry

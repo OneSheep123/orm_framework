@@ -12,26 +12,23 @@ type Selectable interface {
 
 // Selector 用于构建Select语句
 type Selector[T any] struct {
-	builder
-	table   TableReference
-	where   []Predicate
-	having  []Predicate
-	columns []Selectable
-	groupBy []Column
-	offset  int
-	limit   int
-
+	// 表别名
+	table TableReference
+	// select语句构建元素
+	selectorBuilder
 	sess Session
 }
 
 func NewSelector[T any](sess Session) *Selector[T] {
 	c := sess.getCore()
 	return &Selector[T]{
-		builder: builder{
-			core:   c,
-			quoter: c.dialect.quoter(),
-		},
 		sess: sess,
+		selectorBuilder: selectorBuilder{
+			builder: builder{
+				core:   c,
+				quoter: c.dialect.quoter(),
+			},
+		},
 	}
 }
 

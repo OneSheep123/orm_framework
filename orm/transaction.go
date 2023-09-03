@@ -8,15 +8,7 @@ import (
 
 var (
 	_ Session = &Tx{}
-	_ Session = &DB{}
 )
-
-// Session db和session的抽象
-type Session interface {
-	getCore() core
-	queryContext(context context.Context, query string, args ...any) (*sql.Rows, error)
-	execContext(context context.Context, query string, args ...any) (sql.Result, error)
-}
 
 type Tx struct {
 	tx *sql.Tx

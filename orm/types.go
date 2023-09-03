@@ -23,6 +23,13 @@ type QueryBuilder interface {
 	Build() (*Query, error)
 }
 
+// Session 代表一个抽象的概念，即会话
+type Session interface {
+	getCore() core
+	queryContext(context context.Context, query string, args ...any) (*sql.Rows, error)
+	execContext(context context.Context, query string, args ...any) (sql.Result, error)
+}
+
 type Query struct {
 	SQL  string
 	Args []any

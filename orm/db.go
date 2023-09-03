@@ -11,6 +11,10 @@ import (
 	"orm_framework/orm/model"
 )
 
+var (
+	_ Session = &DB{}
+)
+
 type DB struct {
 	core
 

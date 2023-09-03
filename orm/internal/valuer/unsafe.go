@@ -10,8 +10,10 @@ import (
 )
 
 type unsafeValue struct {
+	// address 元素的地址
 	address unsafe.Pointer
-	meta    *model.Model
+	// meta 元数据
+	meta *model.Model
 }
 
 var _ Creator = NewUnsafeValue
@@ -49,7 +51,9 @@ func (u unsafeValue) SetColumns(rows *sql.Rows) error {
 		if !ok {
 			return errs.NewErrUnknownColumn(c)
 		}
+		// 结构体的地址 + 对应字段在结构体中的偏移量
 		ptr := unsafe.Pointer(uintptr(u.address) + cm.Offset)
+		// 在特定地址创建值
 		val := reflect.NewAt(cm.Type, ptr)
 		colValues[i] = val.Interface()
 	}

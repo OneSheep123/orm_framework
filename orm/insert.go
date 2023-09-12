@@ -9,6 +9,8 @@ import (
 	"orm_framework/orm/model"
 )
 
+var _ QueryBuilder = &Inserter[any]{}
+
 type Inserter[T any] struct {
 	values []*T
 	insertBuilder

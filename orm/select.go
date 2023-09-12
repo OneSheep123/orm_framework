@@ -43,12 +43,14 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}
 	s.model = m
 	s.writeString("SELECT ")
+	// 构建select内容
 	err = s.buildColumns()
 	if err != nil {
 		return nil, err
 	}
 	s.writeString(" FROM ")
 
+	// 构建table内容，这里进行支持相关join关联
 	if err = s.buildTable(s.table); err != nil {
 		return nil, err
 	}
@@ -56,11 +58,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 	if len(s.where) > 0 {
 		// 类似这种可有可无的部分，都要在前面加一个空格
 		s.writeString(" WHERE ")
-		pre := s.where[0]
-		for index := 1; index < len(s.where); index++ {
-			pre = pre.And(s.where[index])
-		}
-		if err = s.buildExpression(pre); err != nil {
+		if err = s.buildPredicates(s.where); err != nil {
 			return nil, err
 		}
 	}

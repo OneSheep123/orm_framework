@@ -10,7 +10,7 @@ import (
 type Value interface {
 	// Field 返回字段对应的值
 	Field(name string) (any, error)
-	// SetColumns 设置新值
+	// SetColumns 从数据库查询之后设置新值到Model
 	SetColumns(rows *sql.Rows) error
 }
 

@@ -12,6 +12,13 @@ type UnsafeAccessor struct {
 	address unsafe.Pointer
 }
 
+type FieldMeta struct {
+	tOf reflect.Type
+	// 字段偏移量
+	offset uintptr
+}
+
+// NewUnsafeAccessor 根据entity初始化一个UnsafeAccessor操作
 func NewUnsafeAccessor(entity any) *UnsafeAccessor {
 	tOf := reflect.TypeOf(entity)
 	// 使用一层指针
@@ -25,6 +32,8 @@ func NewUnsafeAccessor(entity any) *UnsafeAccessor {
 			offset: field.Offset,
 		}
 	}
+
+	// 获取地址时，使用valueOf
 	value := reflect.ValueOf(entity)
 	return &UnsafeAccessor{
 		// 值对应的起始地址
@@ -51,10 +60,4 @@ func (a *UnsafeAccessor) SetField(field string, val any) error {
 	fdAddress := unsafe.Pointer(uintptr(a.address) + meta.offset)
 	reflect.NewAt(meta.tOf, fdAddress).Elem().Set(reflect.ValueOf(val))
 	return nil
-}
-
-type FieldMeta struct {
-	tOf reflect.Type
-	// 字段偏移量
-	offset uintptr
 }
